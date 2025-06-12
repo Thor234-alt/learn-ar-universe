@@ -9,6 +9,42 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      modules: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          difficulty_level: string | null
+          id: string
+          is_active: boolean | null
+          syllabus: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty_level?: string | null
+          id?: string
+          is_active?: boolean | null
+          syllabus?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          difficulty_level?: string | null
+          id?: string
+          is_active?: boolean | null
+          syllabus?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -35,6 +71,128 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      student_progress: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          module_id: string
+          progress_percentage: number | null
+          student_id: string
+          topic_id: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          module_id: string
+          progress_percentage?: number | null
+          student_id: string
+          topic_id: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          module_id?: string
+          progress_percentage?: number | null
+          student_id?: string
+          topic_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_progress_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_progress_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teachers: {
+        Row: {
+          created_at: string
+          department: string | null
+          hire_date: string | null
+          id: string
+          subject: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          department?: string | null
+          hire_date?: string | null
+          id?: string
+          subject?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          department?: string | null
+          hire_date?: string | null
+          id?: string
+          subject?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      topics: {
+        Row: {
+          content: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_completed: boolean | null
+          module_id: string
+          order_index: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_completed?: boolean | null
+          module_id: string
+          order_index?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_completed?: boolean | null
+          module_id?: string
+          order_index?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "topics_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

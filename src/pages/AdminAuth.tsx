@@ -15,7 +15,7 @@ const AdminAuth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState<'admin' | 'client'>('admin');
+  const [role, setRole] = useState<'admin' | 'client' | 'teacher'>('admin');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   
@@ -47,7 +47,7 @@ const AdminAuth = () => {
           description: isLogin ? "Welcome back!" : "Account created successfully! Please check your email for verification."
         });
         if (isLogin) {
-          navigate('/');
+          // Redirect will be handled by the auth context based on role
         }
       }
     } catch (error) {
@@ -153,13 +153,14 @@ const AdminAuth = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="role" className="text-white">Role</Label>
-                    <Select value={role} onValueChange={(value: 'admin' | 'client') => setRole(value)}>
+                    <Select value={role} onValueChange={(value: 'admin' | 'client' | 'teacher') => setRole(value)}>
                       <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                         <SelectValue placeholder="Select your role" />
                       </SelectTrigger>
                       <SelectContent className="bg-slate-700 border-slate-600">
                         <SelectItem value="admin" className="text-white">Administrator</SelectItem>
                         <SelectItem value="client" className="text-white">Client/Institution</SelectItem>
+                        <SelectItem value="teacher" className="text-white">Teacher</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

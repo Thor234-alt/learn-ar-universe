@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
+import { useNavigate } from 'react-router-dom';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -11,9 +12,9 @@ interface AuthContextType {
   profile: Profile | null;
   session: Session | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName: string, role: 'admin' | 'student' | 'client') => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName: string, role: 'admin' | 'student' | 'client' | 'teacher') => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signInWithGoogle: (role: 'admin' | 'student' | 'client') => Promise<{ error: any }>;
+  signInWithGoogle: (role: 'admin' | 'student' | 'client' | 'teacher') => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -47,8 +48,37 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       setProfile(data);
+      
+      // Redirect based on role after profile is fetched
+      if (data?.role && window.location.pathname === '/') {
+        redirectBasedOnRole(data.role);
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
+    }
+  };
+
+  const redirectBasedOnRole = (role: string) => {
+    const currentPath = window.location.pathname;
+    
+    // Don't redirect if already on a dashboard or auth page
+    if (currentPath.includes('dashboard') || currentPath.includes('auth')) {
+      return;
+    }
+
+    switch (role) {
+      case 'student':
+        window.location.href = '/student-dashboard';
+        break;
+      case 'admin':
+      case 'client':
+        window.location.href = '/admin-dashboard';
+        break;
+      case 'teacher':
+        window.location.href = '/teacher-dashboard';
+        break;
+      default:
+        break;
     }
   };
 
@@ -56,6 +86,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -73,6 +104,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session:', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -86,7 +118,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName: string, role: 'admin' | 'student' | 'client') => {
+  const signUp = async (email: string, password: string, fullName: string, role: 'admin' | 'student' | 'client' | 'teacher') => {
     const redirectUrl = `${window.location.origin}/`;
     
     const { error } = await supabase.auth.signUp({
@@ -113,7 +145,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return { error };
   };
 
-  const signInWithGoogle = async (role: 'admin' | 'student' | 'client') => {
+  const signInWithGoogle = async (role: 'admin' | 'student' | 'client' | 'teacher') => {
     const redirectUrl = `${window.location.origin}/`;
     
     const { error } = await supabase.auth.signInWithOAuth({
@@ -134,6 +166,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
     setProfile(null);
     setSession(null);
+    window.location.href = '/';
   };
 
   const value = {
