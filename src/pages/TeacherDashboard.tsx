@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +10,8 @@ import Navbar from '@/components/Navbar';
 type StudentProgress = {
   id: string;
   student_id: string;
+  module_id: string;
+  topic_id: string;
   progress_percentage: number;
   completed_at: string | null;
   created_at: string;
