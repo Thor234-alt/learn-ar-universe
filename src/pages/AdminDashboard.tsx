@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, BookOpen, Users, Settings, Trash2 } from 'lucide-react';
+import { Plus, BookOpen, Users, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
 
@@ -38,6 +39,8 @@ const AdminDashboard = () => {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'modules' | 'teachers'>('modules');
+  const [isCreateModuleOpen, setIsCreateModuleOpen] = useState(false);
+  const [isCreateTeacherOpen, setIsCreateTeacherOpen] = useState(false);
   const { toast } = useToast();
 
   // Module form state
@@ -118,12 +121,25 @@ const AdminDashboard = () => {
 
   const handleCreateModule = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to create modules",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('modules')
         .insert({
-          ...moduleForm,
-          created_by: user?.id
+          title: moduleForm.title,
+          description: moduleForm.description,
+          syllabus: moduleForm.syllabus,
+          difficulty_level: moduleForm.difficulty_level,
+          created_by: user.id
         });
 
       if (error) throw error;
@@ -140,6 +156,7 @@ const AdminDashboard = () => {
         difficulty_level: 'beginner'
       });
 
+      setIsCreateModuleOpen(false);
       fetchData();
     } catch (error) {
       console.error('Error creating module:', error);
@@ -154,43 +171,48 @@ const AdminDashboard = () => {
   const handleCreateTeacher = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      // First, create the user account
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      // Create the user account with signup
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: teacherForm.email,
-        password: 'temp123456', // Temporary password
-        email_confirm: true,
-        user_metadata: {
-          full_name: teacherForm.fullName,
-          role: 'teacher'
+        password: 'temp123456',
+        options: {
+          data: {
+            full_name: teacherForm.fullName,
+            role: 'teacher',
+            email: teacherForm.email
+          }
         }
       });
 
       if (authError) throw authError;
 
-      // Then create the teacher profile
-      const { error: teacherError } = await supabase
-        .from('teachers')
-        .insert({
-          user_id: authData.user.id,
-          subject: teacherForm.subject,
-          department: teacherForm.department
+      if (authData.user) {
+        // Create the teacher profile
+        const { error: teacherError } = await supabase
+          .from('teachers')
+          .insert({
+            user_id: authData.user.id,
+            subject: teacherForm.subject,
+            department: teacherForm.department
+          });
+
+        if (teacherError) throw teacherError;
+
+        toast({
+          title: "Success",
+          description: "Teacher account created successfully! They will receive a confirmation email."
         });
 
-      if (teacherError) throw teacherError;
+        setTeacherForm({
+          email: '',
+          fullName: '',
+          subject: '',
+          department: ''
+        });
 
-      toast({
-        title: "Success",
-        description: "Teacher account created successfully!"
-      });
-
-      setTeacherForm({
-        email: '',
-        fullName: '',
-        subject: '',
-        department: ''
-      });
-
-      fetchData();
+        setIsCreateTeacherOpen(false);
+        fetchData();
+      }
     } catch (error) {
       console.error('Error creating teacher:', error);
       toast({
@@ -272,7 +294,9 @@ const AdminDashboard = () => {
           <h1 className="text-3xl font-bold text-white mb-2">
             Admin Dashboard
           </h1>
-          <p className="text-gray-300">Manage modules and teachers</p>
+          <p className="text-gray-300">
+            Welcome back, {profile?.full_name || user?.email}
+          </p>
         </div>
 
         {/* Tab Navigation */}
@@ -280,7 +304,7 @@ const AdminDashboard = () => {
           <Button
             onClick={() => setActiveTab('modules')}
             variant={activeTab === 'modules' ? 'default' : 'outline'}
-            className="bg-orange-500 hover:bg-orange-600"
+            className={activeTab === 'modules' ? 'bg-orange-500 hover:bg-orange-600' : 'border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white'}
           >
             <BookOpen className="w-4 h-4 mr-2" />
             Modules
@@ -288,7 +312,7 @@ const AdminDashboard = () => {
           <Button
             onClick={() => setActiveTab('teachers')}
             variant={activeTab === 'teachers' ? 'default' : 'outline'}
-            className="bg-orange-500 hover:bg-orange-600"
+            className={activeTab === 'teachers' ? 'bg-orange-500 hover:bg-orange-600' : 'border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white'}
           >
             <Users className="w-4 h-4 mr-2" />
             Teachers
@@ -298,7 +322,7 @@ const AdminDashboard = () => {
         {activeTab === 'modules' && (
           <div className="space-y-6">
             {/* Create Module Dialog */}
-            <Dialog>
+            <Dialog open={isCreateModuleOpen} onOpenChange={setIsCreateModuleOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700">
                   <Plus className="w-4 h-4 mr-2" />
@@ -422,7 +446,7 @@ const AdminDashboard = () => {
         {activeTab === 'teachers' && (
           <div className="space-y-6">
             {/* Create Teacher Dialog */}
-            <Dialog>
+            <Dialog open={isCreateTeacherOpen} onOpenChange={setIsCreateTeacherOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700">
                   <Plus className="w-4 h-4 mr-2" />

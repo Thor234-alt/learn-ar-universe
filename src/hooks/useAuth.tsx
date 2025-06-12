@@ -3,7 +3,6 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { Database } from '@/integrations/supabase/types';
-import { useNavigate } from 'react-router-dom';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -34,6 +33,47 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const createOrUpdateProfile = async (userId: string, userMetadata: any) => {
+    try {
+      // Check if profile already exists
+      const { data: existingProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error checking existing profile:', fetchError);
+        return;
+      }
+
+      if (!existingProfile) {
+        // Create new profile
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            email: userMetadata.email || '',
+            full_name: userMetadata.full_name || userMetadata.name || '',
+            role: userMetadata.role || 'student'
+          })
+          .select()
+          .single();
+
+        if (insertError) {
+          console.error('Error creating profile:', insertError);
+          return;
+        }
+
+        setProfile(newProfile);
+      } else {
+        setProfile(existingProfile);
+      }
+    } catch (error) {
+      console.error('Error in createOrUpdateProfile:', error);
+    }
+  };
+
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -42,16 +82,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         .eq('id', userId)
         .maybeSingle();
       
-      if (error) {
+      if (error && error.code !== 'PGRST116') {
         console.error('Error fetching profile:', error);
         return;
       }
       
-      setProfile(data);
-      
-      // Redirect based on role after profile is fetched
-      if (data?.role && window.location.pathname === '/') {
-        redirectBasedOnRole(data.role);
+      if (data) {
+        setProfile(data);
+        // Redirect based on role after profile is fetched
+        setTimeout(() => redirectBasedOnRole(data.role), 100);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -91,9 +130,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          setTimeout(() => {
-            fetchProfile(session.user.id);
-          }, 0);
+          if (event === 'SIGNED_IN' && session.user.user_metadata) {
+            // For new signups, create profile first
+            await createOrUpdateProfile(session.user.id, session.user.user_metadata);
+          } else {
+            // For existing users, just fetch profile
+            await fetchProfile(session.user.id);
+          }
         } else {
           setProfile(null);
         }
@@ -128,7 +171,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         emailRedirectTo: redirectUrl,
         data: {
           full_name: fullName,
-          role: role
+          role: role,
+          email: email
         }
       }
     });
