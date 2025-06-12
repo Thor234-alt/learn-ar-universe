@@ -18,13 +18,14 @@ type StudentProgress = {
   topics: {
     title: string;
     modules: {
+      id: string;
       title: string;
     };
-  };
+  } | null;
   profiles: {
     full_name: string;
     email: string;
-  };
+  } | null;
 };
 
 type Module = {
@@ -48,14 +49,15 @@ const TeacherDashboard = () => {
 
   const fetchData = async () => {
     try {
-      // Fetch student progress with related data
+      // Fetch student progress with related data using inner joins
       const { data: progressData, error: progressError } = await supabase
         .from('student_progress')
         .select(`
           *,
-          topics (
+          topics!inner (
             title,
-            modules (
+            modules!inner (
+              id,
               title
             )
           ),

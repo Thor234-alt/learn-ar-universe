@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,7 +31,7 @@ type Teacher = {
   profiles: {
     full_name: string;
     email: string;
-  };
+  } | null;
 };
 
 const AdminDashboard = () => {
@@ -73,12 +72,17 @@ const AdminDashboard = () => {
 
       if (modulesError) throw modulesError;
 
-      // Fetch teachers with profiles
+      // Fetch teachers with profiles - using inner join to get profile data
       const { data: teachersData, error: teachersError } = await supabase
         .from('teachers')
         .select(`
-          *,
-          profiles (
+          id,
+          user_id,
+          subject,
+          department,
+          hire_date,
+          created_at,
+          profiles!inner (
             full_name,
             email
           )
