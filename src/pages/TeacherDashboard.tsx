@@ -15,17 +15,10 @@ type StudentProgress = {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
-  topics: {
-    title: string;
-    modules: {
-      id: string;
-      title: string;
-    };
-  } | null;
-  profiles: {
-    full_name: string;
-    email: string;
-  } | null;
+  topic_title?: string;
+  module_title?: string;
+  student_name?: string;
+  student_email?: string;
 };
 
 type Module = {
@@ -49,28 +42,22 @@ const TeacherDashboard = () => {
 
   const fetchData = async () => {
     try {
-      // Fetch student progress with related data using inner joins
+      // Fetch student progress
       const { data: progressData, error: progressError } = await supabase
         .from('student_progress')
-        .select(`
-          *,
-          topics!inner (
-            title,
-            modules!inner (
-              id,
-              title
-            )
-          ),
-          profiles!student_progress_student_id_fkey (
-            full_name,
-            email
-          )
-        `)
+        .select('*')
         .order('updated_at', { ascending: false });
 
       if (progressError) throw progressError;
 
-      // Fetch modules
+      // Fetch topics to get topic titles
+      const { data: topicsData, error: topicsError } = await supabase
+        .from('topics')
+        .select('id, title, module_id');
+
+      if (topicsError) throw topicsError;
+
+      // Fetch modules to get module titles
       const { data: modulesData, error: modulesError } = await supabase
         .from('modules')
         .select('*')
@@ -79,7 +66,31 @@ const TeacherDashboard = () => {
 
       if (modulesError) throw modulesError;
 
-      setStudentProgress(progressData || []);
+      // Fetch profiles to get student names
+      const studentIds = progressData?.map(p => p.student_id) || [];
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', studentIds);
+
+      if (profilesError) throw profilesError;
+
+      // Merge all the data together
+      const enrichedProgress = progressData?.map(progress => {
+        const topic = topicsData?.find(t => t.id === progress.topic_id);
+        const module = modulesData?.find(m => m.id === progress.module_id);
+        const profile = profilesData?.find(p => p.id === progress.student_id);
+        
+        return {
+          ...progress,
+          topic_title: topic?.title || 'Unknown Topic',
+          module_title: module?.title || 'Unknown Module',
+          student_name: profile?.full_name || 'Unknown Student',
+          student_email: profile?.email || 'No email'
+        };
+      }) || [];
+
+      setStudentProgress(enrichedProgress);
       setModules(modulesData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -99,8 +110,8 @@ const TeacherDashboard = () => {
       if (!uniqueStudents.has(progress.student_id)) {
         uniqueStudents.set(progress.student_id, {
           id: progress.student_id,
-          name: progress.profiles?.full_name || 'No name',
-          email: progress.profiles?.email || 'No email',
+          name: progress.student_name || 'No name',
+          email: progress.student_email || 'No email',
           totalProgress: 0,
           completedTopics: 0,
           totalTopics: 0
@@ -137,9 +148,8 @@ const TeacherDashboard = () => {
     });
 
     studentProgress.forEach(progress => {
-      const moduleId = progress.topics?.modules?.id;
-      if (moduleStats.has(moduleId)) {
-        const stats = moduleStats.get(moduleId);
+      if (moduleStats.has(progress.module_id)) {
+        const stats = moduleStats.get(progress.module_id);
         stats.totalStudents += 1;
         if (progress.progress_percentage === 100) {
           stats.completedCount += 1;
@@ -333,10 +343,10 @@ const TeacherDashboard = () => {
                 <div key={progress.id} className="flex items-center justify-between border-b pb-2">
                   <div>
                     <p className="font-medium text-gray-900">
-                      {progress.profiles?.full_name || 'Unknown Student'}
+                      {progress.student_name}
                     </p>
                     <p className="text-sm text-gray-600">
-                      {progress.topics?.title} - {progress.topics?.modules?.title}
+                      {progress.topic_title} - {progress.module_title}
                     </p>
                   </div>
                   <div className="text-right">

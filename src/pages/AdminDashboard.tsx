@@ -28,10 +28,8 @@ type Teacher = {
   subject: string;
   department: string;
   hire_date: string;
-  profiles: {
-    full_name: string;
-    email: string;
-  } | null;
+  full_name?: string;
+  email?: string;
 };
 
 const AdminDashboard = () => {
@@ -72,27 +70,40 @@ const AdminDashboard = () => {
 
       if (modulesError) throw modulesError;
 
-      // Fetch teachers with profiles - using inner join to get profile data
+      // Fetch teachers with their profile information
       const { data: teachersData, error: teachersError } = await supabase
         .from('teachers')
-        .select(`
-          id,
-          user_id,
-          subject,
-          department,
-          hire_date,
-          created_at,
-          profiles!inner (
-            full_name,
-            email
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (teachersError) throw teachersError;
 
+      // Fetch profiles for the teachers
+      if (teachersData && teachersData.length > 0) {
+        const userIds = teachersData.map(teacher => teacher.user_id);
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', userIds);
+
+        if (profilesError) throw profilesError;
+
+        // Merge teacher data with profile data
+        const teachersWithProfiles = teachersData.map(teacher => {
+          const profile = profilesData?.find(p => p.id === teacher.user_id);
+          return {
+            ...teacher,
+            full_name: profile?.full_name || 'No name',
+            email: profile?.email || 'No email'
+          };
+        });
+
+        setTeachers(teachersWithProfiles);
+      } else {
+        setTeachers([]);
+      }
+
       setModules(modulesData || []);
-      setTeachers(teachersData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -480,9 +491,9 @@ const AdminDashboard = () => {
                     <div className="flex items-center justify-between">
                       <div>
                         <h3 className="text-lg font-medium text-white">
-                          {teacher.profiles?.full_name || 'No name'}
+                          {teacher.full_name}
                         </h3>
-                        <p className="text-gray-400">{teacher.profiles?.email}</p>
+                        <p className="text-gray-400">{teacher.email}</p>
                         <div className="mt-2 space-y-1">
                           {teacher.subject && (
                             <div className="text-sm">
