@@ -31,7 +31,7 @@ type Progress = {
 };
 
 const StudentDashboard = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [modules, setModules] = useState<Module[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [progress, setProgress] = useState<Progress[]>([]);
@@ -39,44 +39,76 @@ const StudentDashboard = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    // Only fetch data when user is authenticated and not in auth loading state
+    if (!authLoading && user) {
+      console.log('Fetching dashboard data for user:', user.id);
+      fetchData();
+    } else if (!authLoading && !user) {
+      // User is not authenticated
+      setLoading(false);
+    }
+  }, [user, authLoading]);
 
   const fetchData = async () => {
+    if (!user) {
+      console.error('No user found');
+      setLoading(false);
+      return;
+    }
+
     try {
+      console.log('Starting data fetch...');
+      
       // Fetch modules
+      console.log('Fetching modules...');
       const { data: modulesData, error: modulesError } = await supabase
         .from('modules')
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: true });
 
-      if (modulesError) throw modulesError;
+      if (modulesError) {
+        console.error('Modules error:', modulesError);
+        throw modulesError;
+      }
+      console.log('Modules fetched:', modulesData?.length || 0);
 
       // Fetch topics
+      console.log('Fetching topics...');
       const { data: topicsData, error: topicsError } = await supabase
         .from('topics')
         .select('*')
         .order('order_index', { ascending: true });
 
-      if (topicsError) throw topicsError;
+      if (topicsError) {
+        console.error('Topics error:', topicsError);
+        throw topicsError;
+      }
+      console.log('Topics fetched:', topicsData?.length || 0);
 
       // Fetch student progress
+      console.log('Fetching student progress for user:', user.id);
       const { data: progressData, error: progressError } = await supabase
         .from('student_progress')
         .select('*')
-        .eq('student_id', user?.id);
+        .eq('student_id', user.id);
 
-      if (progressError) throw progressError;
+      if (progressError) {
+        console.error('Progress error:', progressError);
+        throw progressError;
+      }
+      console.log('Progress fetched:', progressData?.length || 0);
 
       setModules(modulesData || []);
       setTopics(topicsData || []);
       setProgress(progressData || []);
+      
+      console.log('All data fetched successfully');
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
         title: "Error",
-        description: "Failed to load dashboard data",
+        description: `Failed to load dashboard data: ${error.message || 'Unknown error'}`,
         variant: "destructive"
       });
     } finally {
@@ -93,17 +125,31 @@ const StudentDashboard = () => {
   };
 
   const startTopic = async (topicId: string, moduleId: string) => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to start a topic",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
+      console.log('Starting topic:', topicId, 'for user:', user.id);
+      
       const { error } = await supabase
         .from('student_progress')
         .upsert({
-          student_id: user?.id,
+          student_id: user.id,
           topic_id: topicId,
           module_id: moduleId,
           progress_percentage: 0
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error starting topic:', error);
+        throw error;
+      }
 
       toast({
         title: "Success",
@@ -115,12 +161,28 @@ const StudentDashboard = () => {
       console.error('Error starting topic:', error);
       toast({
         title: "Error",
-        description: "Failed to start topic",
+        description: `Failed to start topic: ${error.message || 'Unknown error'}`,
         variant: "destructive"
       });
     }
   };
 
+  // Show loading spinner while auth is loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+        <Navbar />
+        <div className="container mx-auto px-6 pt-24">
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2">Loading...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show loading spinner while data is loading
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
@@ -128,6 +190,21 @@ const StudentDashboard = () => {
         <div className="container mx-auto px-6 pt-24">
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <span className="ml-2">Loading dashboard data...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if user is not authenticated
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+        <Navbar />
+        <div className="container mx-auto px-6 pt-24">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Please sign in to access your dashboard</h1>
           </div>
         </div>
       </div>
