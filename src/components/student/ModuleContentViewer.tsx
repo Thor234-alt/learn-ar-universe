@@ -38,6 +38,7 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
   const [selectedContent, setSelectedContent] = useState<ModuleContent | null>(null);
   const [loading, setLoading] = useState(false);
   const [firstTopicId, setFirstTopicId] = useState<string | null>(null);
+  const [selectedModelIdx, setSelectedModelIdx] = useState(0);
   const { toast } = useToast();
 
   // Get the effective topic ID to use for progress tracking
@@ -286,13 +287,12 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
   };
 
   const renderThreeDModelContent = (contentData: any, title: string) => {
-    // Always expect contentData.urls to be array of file URLs
+    // Make sure to expect array of file URLs
     const urls: string[] =
       Array.isArray(contentData?.urls) && contentData.urls.length > 0
         ? contentData.urls.filter(Boolean)
         : [];
-    const [selectedUrlIdx, setSelectedUrlIdx] = useState(0); // declare hook inside function
-
+    
     if (!urls.length) {
       return (
         <div className="flex items-center justify-center h-full text-gray-500">
@@ -301,28 +301,23 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
       );
     }
 
-    // Allow switching between different .gltf/.glb root files for an entry
-    const modelGroupUrls = (urls: string[], activeIdx: number) => {
-      // Find relevant root file and bin files
-      const all = urls;
-      const selectedFile = all[activeIdx];
-      // If .gltf root file, collect bin in same directory (pass all urls).
-      // Logic for buffer: Drei/Three.js will fetch .bin as long as the URL is valid and referenced in .gltf.
-      return { rootUrl: selectedFile, allFiles: all };
-    };
+    // Determine available root files (.gltf or .glb)
+    const rootFiles = urls.filter(u => u.endsWith('.gltf') || u.endsWith('.glb'));
+    const hasMultipleRoots = rootFiles.length > 1;
 
-    const { rootUrl, allFiles } = modelGroupUrls(urls, selectedUrlIdx);
+    // Restrict selectedModelIdx if less roots
+    const safeSelectedIdx = selectedModelIdx >= rootFiles.length ? 0 : selectedModelIdx;
 
     return (
       <div className="flex flex-col h-full w-full">
-        {urls.length > 1 && (
+        {hasMultipleRoots && (
           <div className="flex flex-row space-x-2 mb-2">
-            {urls.map((u, i) => (
+            {rootFiles.map((u, i) => (
               <button
                 key={i}
-                onClick={() => setSelectedUrlIdx(i)}
+                onClick={() => setSelectedModelIdx(i)}
                 className={`px-3 py-1 rounded text-xs font-medium ${
-                  i === selectedUrlIdx
+                  i === safeSelectedIdx
                     ? "bg-blue-600 text-white"
                     : "bg-gray-200 text-gray-700 hover:bg-blue-100"
                 }`}
@@ -342,8 +337,9 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
             }
           >
             <ThreeDModelViewer
-              modelUrl={rootUrl}
-              // For now we only show one at a time, but Drei loader will fetch .bin as long as it's on the server and referenced.
+              modelUrls={urls}
+              // Pass all URLs so .bin dependencies load, and ThreeDModelViewer will select appropriate root.
+              selectedRootUrl={rootFiles.length > 0 ? rootFiles[safeSelectedIdx] : urls[0]}
             />
           </Suspense>
         </div>

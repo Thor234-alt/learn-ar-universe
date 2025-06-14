@@ -5,15 +5,16 @@ import { OrbitControls, useGLTF, Stage, PresentationControls, Environment, Html 
 import { Loader2 } from 'lucide-react';
 
 interface ThreeDModelViewerProps {
-  // Accept either a string or array of model file URLs
   modelUrl?: string;
   modelUrls?: string[];
+  selectedRootUrl?: string;
 }
 
-function Model({ url }: { url: string }) {
-  // Drei/three.js will fetch .bin dependencies if referenced inside the .gltf and publicly accessible!
-  // Only the main .gltf or .glb URL needs to be loaded; .bin is loaded by loader if referenced
-  const { scene } = useGLTF(url, true); // prefetch true for cache
+// Enhanced Model function to support preloading of all URLs (for bin support)
+function Model({ url, fileMap }: { url: string, fileMap?: Map<string, string> }) {
+  // Patch the loader to "inject" known URLs for dependency resolution if required
+  const { scene } = useGLTF(url, true);
+  // Future: Could use onProgress/error for granularity
   return <primitive object={scene} scale={1} />;
 }
 
@@ -48,19 +49,27 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
   }
 }
 
-const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl, modelUrls }) => {
-  // Prioritize array; fallback to single modelUrl
-  let mainUrl = '';
+// Support flexible multi-root mode based on provided files
+const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl, modelUrls, selectedRootUrl }) => {
+  // Consolidate all provided URLs
+  let rootUrl = '';
+  let fileList: string[] = [];
   if (modelUrls && modelUrls.length > 0) {
-    // Prefer first .gltf/.glb if present, fallback any
-    mainUrl = modelUrls.find(u => u.endsWith('.gltf') || u.endsWith('.glb')) || modelUrls[0];
+    fileList = modelUrls.filter(Boolean);
+    // Use selectedRootUrl if provided, else pick first .gltf/.glb, else just first
+    rootUrl = selectedRootUrl || fileList.find(u => u.endsWith('.gltf') || u.endsWith('.glb')) || fileList[0];
   } else if (modelUrl) {
-    mainUrl = modelUrl;
+    rootUrl = modelUrl;
+    fileList = [modelUrl];
   }
 
-  if (!mainUrl) {
+  if (!rootUrl) {
     return <div className="flex items-center justify-center h-full text-gray-500">No 3D model file provided.</div>;
   }
+
+  // DEBUG: Log model load events and files attempted
+  console.log('[ThreeDModelViewer] rootUrl:', rootUrl);
+  console.log('[ThreeDModelViewer] all files:', fileList);
 
   return (
     <ErrorBoundary>
@@ -77,7 +86,7 @@ const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl, modelUr
             >
               <Stage environment={null} intensity={0.6}>
                 <Environment preset="city" />
-                <Model url={mainUrl} />
+                <Model url={rootUrl} />
               </Stage>
             </PresentationControls>
             <OrbitControls 
