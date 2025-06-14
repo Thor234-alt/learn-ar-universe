@@ -2,7 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, Users } from 'lucide-react';
 import { ChartContainer } from '@/components/ui/chart';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
 type Student = {
   id: string;
@@ -17,8 +17,10 @@ type StudentProgressCardProps = {
   students: Student[];
 };
 
+const COLORS = ['#10b981', '#f59e42', '#818cf8'];
+
 const StudentProgressBarChart = ({ students }: { students: Student[] }) => {
-  // Prepare data
+  // Prepare data for progress bands
   const data = [
     { name: '0-19%', count: 0 },
     { name: '20-39%', count: 0 },
@@ -53,6 +55,48 @@ const StudentProgressBarChart = ({ students }: { students: Student[] }) => {
   );
 };
 
+const StudentProgressPieChart = ({ students }: { students: Student[] }) => {
+  // Students grouped into: "Completed", "In Progress", "Not Started"
+  let completed = 0;
+  let inProgress = 0;
+  let notStarted = 0;
+  students.forEach(student => {
+    if (student.averageProgress === 100) completed++;
+    else if (student.averageProgress > 0) inProgress++;
+    else notStarted++;
+  });
+  const pieData = [
+    { name: "Completed", value: completed },
+    { name: "In Progress", value: inProgress },
+    { name: "Not Started", value: notStarted }
+  ];
+  return (
+    <div style={{ width: "100%", height: 140 }}>
+      <ResponsiveContainer width="100%" height={140}>
+        <PieChart>
+          <Pie
+            dataKey="value"
+            data={pieData}
+            cx="50%"
+            cy="50%"
+            outerRadius={45}
+            fill="#8884d8"
+            label={({ name, value }) => value > 0 ? `${name}: ${value}` : ''}
+          >
+            {pieData.map((entry, idx) => (
+              <Cell key={entry.name} fill={COLORS[idx % COLORS.length]} />
+            ))}
+          </Pie>
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="text-xs text-gray-500 mt-1 text-right">
+        Overall student progress distribution
+      </div>
+    </div>
+  );
+};
+
 const StudentProgressCard = ({ students }: StudentProgressCardProps) => {
   return (
     <Card>
@@ -66,7 +110,12 @@ const StudentProgressCard = ({ students }: StudentProgressCardProps) => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {students.length > 0 && <StudentProgressBarChart students={students} />}
+        {students.length > 0 && (
+          <>
+            <StudentProgressPieChart students={students} />
+            <StudentProgressBarChart students={students} />
+          </>
+        )}
         <div className="space-y-2">
           {students.map((student) => (
             <div key={student.id} className="border rounded-lg p-4">
