@@ -49,6 +49,22 @@ const StudentDashboard = () => {
     }
   };
 
+  const handleViewModuleContent = (moduleId: string) => {
+    console.log('Viewing module content for module:', moduleId);
+    
+    // Get the first topic of the module to open the content viewer
+    const moduleTopics = getModuleTopics(moduleId);
+    const firstTopic = moduleTopics.length > 0 ? moduleTopics[0] : null;
+    
+    if (firstTopic) {
+      setContentViewer({
+        isOpen: true,
+        moduleId: moduleId,
+        topicId: firstTopic.id
+      });
+    }
+  };
+
   const closeContentViewer = () => {
     setContentViewer({
       isOpen: false,
@@ -111,6 +127,7 @@ const StudentDashboard = () => {
               topics={getModuleTopics(module.id)}
               getTopicProgress={getTopicProgress}
               onStartTopic={handleStartTopic}
+              onViewModuleContent={handleViewModuleContent}
             />
           ))}
         </div>

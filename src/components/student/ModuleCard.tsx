@@ -1,6 +1,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BookOpen } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { BookOpen, Play } from 'lucide-react';
 import TopicCard from './TopicCard';
 
 type Module = {
@@ -30,13 +31,26 @@ interface ModuleCardProps {
   topics: Topic[];
   getTopicProgress: (topicId: string) => Progress | undefined;
   onStartTopic: (topicId: string, moduleId: string) => void;
+  onViewModuleContent?: (moduleId: string) => void;
 }
 
-const ModuleCard = ({ module, topics, getTopicProgress, onStartTopic }: ModuleCardProps) => {
+const ModuleCard = ({ module, topics, getTopicProgress, onStartTopic, onViewModuleContent }: ModuleCardProps) => {
   const completedTopics = topics.filter(topic => {
     const topicProgress = getTopicProgress(topic.id);
     return topicProgress?.progress_percentage === 100;
   });
+
+  const handleViewContent = () => {
+    if (onViewModuleContent) {
+      // Use the first topic's ID if available, otherwise use empty string
+      const firstTopicId = topics.length > 0 ? topics[0].id : '';
+      onViewModuleContent(module.id);
+      // Also trigger the topic start for the first topic to open content viewer
+      if (firstTopicId) {
+        onStartTopic(firstTopicId, module.id);
+      }
+    }
+  };
 
   return (
     <Card className="overflow-hidden">
@@ -59,6 +73,16 @@ const ModuleCard = ({ module, topics, getTopicProgress, onStartTopic }: ModuleCa
               {module.difficulty_level}
             </div>
           </div>
+        </div>
+        <div className="mt-4">
+          <Button 
+            onClick={handleViewContent}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            size="sm"
+          >
+            <Play className="w-4 h-4 mr-2" />
+            View Module Content
+          </Button>
         </div>
       </CardHeader>
       <CardContent className="p-6">
