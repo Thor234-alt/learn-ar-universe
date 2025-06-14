@@ -158,9 +158,8 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
           topic_id: effectiveTopicId,
           content_id: contentId,
           content_completed_at: new Date().toISOString(),
-          progress_percentage: 0 // Will be calculated by trigger
         }, {
-          onConflict: 'student_id,module_id,topic_id'
+          onConflict: 'student_id, content_id',
         });
 
       if (error) {
@@ -180,7 +179,7 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
       console.error('Error marking content complete:', error);
       toast({
         title: "Error",
-        description: "Failed to update progress",
+        description: `Failed to update progress: ${error.message}`,
         variant: "destructive"
       });
     }

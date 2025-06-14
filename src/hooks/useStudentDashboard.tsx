@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { Database } from '@/integrations/supabase/types';
 
 type Module = {
   id: string;
@@ -20,11 +20,8 @@ type Topic = {
   order_index: number;
 };
 
-type Progress = {
-  topic_id: string;
-  progress_percentage: number;
-  completed_at: string | null;
-};
+// Use the generated type for Progress for better accuracy
+type Progress = Database['public']['Tables']['student_progress']['Row'];
 
 export const useStudentDashboard = () => {
   const { user } = useAuth();
@@ -143,7 +140,8 @@ export const useStudentDashboard = () => {
   };
 
   const getTopicProgress = (topicId: string) => {
-    return progress.find(p => p.topic_id === topicId);
+    // Find the summary progress row for the topic, where content_id is null
+    return progress.find(p => p.topic_id === topicId && p.content_id === null);
   };
 
   const startTopic = async (topicId: string, moduleId: string) => {
@@ -155,8 +153,8 @@ export const useStudentDashboard = () => {
     try {
       console.log('Starting topic:', topicId, 'for user:', user.id);
       
-      // Check if progress already exists
-      const existingProgress = progress.find(p => p.topic_id === topicId);
+      // Check if a summary progress row already exists for this topic
+      const existingProgress = progress.find(p => p.topic_id === topicId && p.content_id === null);
       
       if (!existingProgress) {
         const { error } = await supabase
