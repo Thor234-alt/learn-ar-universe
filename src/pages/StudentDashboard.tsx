@@ -56,13 +56,19 @@ const StudentDashboard = () => {
     const moduleTopics = getModuleTopics(moduleId);
     const firstTopic = moduleTopics.length > 0 ? moduleTopics[0] : null;
     
-    if (firstTopic) {
-      setContentViewer({
-        isOpen: true,
-        moduleId: moduleId,
-        topicId: firstTopic.id
-      });
-    }
+    // Always open the content viewer, even if there's no topic
+    // The ModuleContentViewer will handle the case of no topics
+    setContentViewer({
+      isOpen: true,
+      moduleId: moduleId,
+      topicId: firstTopic ? firstTopic.id : '' // Use empty string if no topic
+    });
+    
+    console.log('Content viewer state set:', {
+      isOpen: true,
+      moduleId: moduleId,
+      topicId: firstTopic ? firstTopic.id : 'no-topic'
+    });
   };
 
   const closeContentViewer = () => {

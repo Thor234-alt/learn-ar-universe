@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -41,6 +40,7 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
 
   useEffect(() => {
     if (isOpen && moduleId) {
+      console.log('ModuleContentViewer opening with:', { moduleId, topicId });
       fetchModuleContent();
       fetchProgress();
     }
@@ -49,6 +49,7 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
   const fetchModuleContent = async () => {
     setLoading(true);
     try {
+      console.log('Fetching module content for module:', moduleId);
       const { data, error } = await supabase
         .from('module_content')
         .select('*')
@@ -57,10 +58,12 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
         .order('order_index', { ascending: true });
 
       if (error) throw error;
+      console.log('Module content fetched:', data?.length || 0, 'items');
       setContents(data || []);
       
       if (data && data.length > 0 && !selectedContent) {
         setSelectedContent(data[0]);
+        console.log('Selected first content item:', data[0].title);
       }
     } catch (error) {
       console.error('Error fetching content:', error);
@@ -101,7 +104,7 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
         .upsert({
           student_id: user.id,
           module_id: moduleId,
-          topic_id: topicId,
+          topic_id: topicId || null, // Handle empty topicId
           content_id: contentId,
           content_completed_at: new Date().toISOString(),
           progress_percentage: 0 // Will be calculated by trigger
@@ -161,32 +164,38 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
             </div>
           </div>
 
-          <div className="space-y-2">
-            {contents.map((content) => (
-              <Card 
-                key={content.id} 
-                className={`cursor-pointer transition-colors ${
-                  selectedContent?.id === content.id ? 'ring-2 ring-blue-500' : ''
-                }`}
-                onClick={() => setSelectedContent(content)}
-              >
-                <CardContent className="p-3">
-                  <div className="flex items-center space-x-2">
-                    {getContentIcon(content.content_type)}
-                    <span className="flex-1 text-sm font-medium">{content.title}</span>
-                    {isContentCompleted(content.id) ? (
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <Play className="w-4 h-4 text-gray-400" />
+          {contents.length === 0 && !loading ? (
+            <div className="text-center text-gray-500 py-8">
+              <p>No content available for this module yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {contents.map((content) => (
+                <Card 
+                  key={content.id} 
+                  className={`cursor-pointer transition-colors ${
+                    selectedContent?.id === content.id ? 'ring-2 ring-blue-500' : ''
+                  }`}
+                  onClick={() => setSelectedContent(content)}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-center space-x-2">
+                      {getContentIcon(content.content_type)}
+                      <span className="flex-1 text-sm font-medium">{content.title}</span>
+                      {isContentCompleted(content.id) ? (
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Play className="w-4 h-4 text-gray-400" />
+                      )}
+                    </div>
+                    {content.description && (
+                      <p className="text-xs text-gray-600 mt-1">{content.description}</p>
                     )}
-                  </div>
-                  {content.description && (
-                    <p className="text-xs text-gray-600 mt-1">{content.description}</p>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Content Viewer */}
@@ -195,7 +204,7 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
           <div className="border-b p-4 flex items-center justify-between">
             <div className="flex items-center space-x-2">
               {selectedContent && getContentIcon(selectedContent.content_type)}
-              <h2 className="text-xl font-semibold">{selectedContent?.title}</h2>
+              <h2 className="text-xl font-semibold">{selectedContent?.title || 'Module Content'}</h2>
             </div>
             <div className="flex items-center space-x-2">
               {selectedContent && !isContentCompleted(selectedContent.id) && (
@@ -260,6 +269,13 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
                     />
                   </div>
                 )}
+              </div>
+            ) : contents.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                <div className="text-center">
+                  <p className="text-lg mb-2">No content available</p>
+                  <p className="text-sm">This module doesn't have any content yet.</p>
+                </div>
               </div>
             ) : (
               <div className="flex items-center justify-center h-full text-gray-500">
