@@ -49,6 +49,9 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
     order_index: 0
   });
   const [fileToUpload, setFileToUpload] = useState<File[]>([]);
+  const [assetFileSource, setAssetFileSource] = useState<'url' | 'upload'>('url');
+  const [assetUploading, setAssetUploading] = useState(false);
+  const [assetUploadedUrl, setAssetUploadedUrl] = useState('');
 
   useEffect(() => {
     if (selectedModuleId) {
@@ -83,10 +86,40 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      // Allow selection of any relevant asset type
       setFileToUpload(Array.from(e.target.files));
     } else {
       setFileToUpload([]);
+    }
+  };
+
+  const handleAssetUpload = async (file: File, type: string) => {
+    setAssetUploading(true);
+    setAssetUploadedUrl('');
+    try {
+      // Use public bucket, e.g., 'public-assets'
+      const folderId = `${user?.id || 'public'}/${type}s/${Date.now()}_${Math.floor(Math.random()*1e6)}`;
+      const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const filePath = `${folderId}/${safeFileName}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('public-assets')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+      if (uploadError) {
+        toast({ title: "Error", description: `Failed to upload file: ${uploadError.message}`, variant: "destructive" });
+        setAssetUploading(false);
+        return null;
+      }
+      const { data: publicUrlData } = supabase.storage.from('public-assets').getPublicUrl(uploadData.path);
+      setAssetUploadedUrl(publicUrlData?.publicUrl || '');
+      return publicUrlData?.publicUrl || '';
+    } catch (error) {
+      toast({ title: "Error", description: "Upload failed", variant: "destructive" });
+      setAssetUploading(false);
+      return null;
+    } finally {
+      setAssetUploading(false);
     }
   };
 
@@ -97,13 +130,15 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
     setLoading(true);
     try {
       let finalContentData: any;
+      // 3D model remains special!
       if (contentForm.content_type === '3d_model') {
+        // ... keep all 3D model upload code the same ...
+        // ... keep unchanged code (as previously implemented for 3d models) ...
         if (!fileToUpload || fileToUpload.length === 0) {
           toast({ title: "Error", description: "Please select all relevant 3D model and asset files.", variant: "destructive" });
           setLoading(false);
           return;
         }
-        // Use a common random folder for all uploaded files (GLB, GLTF, BIN, textures, etc)
         const folderId = `${user?.id || 'shared_models'}/${Date.now()}_${Math.floor(Math.random()*1e6)}`;
         let urls: string[] = [];
         let rootModelUrl = "";
@@ -125,7 +160,6 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
           const { data: publicUrlData } = supabase.storage.from('3d_models').getPublicUrl(uploadData.path);
           if (publicUrlData && publicUrlData.publicUrl) {
             urls.push(publicUrlData.publicUrl);
-            // Identify .gltf or .glb as root model
             if (
               safeFileName.toLowerCase().endsWith('.gltf') ||
               safeFileName.toLowerCase().endsWith('.glb')
@@ -140,22 +174,40 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
           setLoading(false);
           return;
         }
-        // Save all URLs as array, and also the folder prefix for reconstructing relative paths if needed
         finalContentData = { rootModelUrl, urls, folderPrefix: folderId, rootModelFilename };
       } else {
-        // Process content based on type for non-file uploads
-        switch (contentForm.content_type) {
-          case 'text':
-            finalContentData = { text: contentForm.content_data };
-            break;
-          case 'video':
-          case 'url':
-          case 'image':
-          case 'pdf':
+        // Handle asset file uploads for supported types (video, image, pdf)
+        const typesWithUploadSupport = ['video', 'image', 'pdf'];
+        if (typesWithUploadSupport.includes(contentForm.content_type)) {
+          if (assetFileSource === 'upload') {
+            // Only one file allowed (enforced below)
+            if (!fileToUpload || fileToUpload.length !== 1) {
+              toast({ title: "Error", description: "Please select exactly one file.", variant: "destructive" });
+              setLoading(false);
+              return;
+            }
+            const uploadedUrl = await handleAssetUpload(fileToUpload[0], contentForm.content_type);
+            if (!uploadedUrl) {
+              setLoading(false);
+              return;
+            }
+            finalContentData = { url: uploadedUrl };
+          } else {
+            // Use content_data input value as direct URL
             finalContentData = { url: contentForm.content_data };
-            break;
-          default:
-            finalContentData = { content: contentForm.content_data }; // Fallback
+          }
+        } else {
+          // Text and URL types remain the same logic
+          switch (contentForm.content_type) {
+            case 'text':
+              finalContentData = { text: contentForm.content_data };
+              break;
+            case 'url':
+              finalContentData = { url: contentForm.content_data };
+              break;
+            default:
+              finalContentData = { content: contentForm.content_data }; // Fallback
+          }
         }
       }
 
@@ -187,9 +239,11 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
         order_index: 0
       });
       setFileToUpload([]);
+      setAssetUploadedUrl('');
+      setAssetFileSource('url');
       setIsCreateContentOpen(false);
       fetchModuleContent();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating content:', error);
       toast({
         title: "Error",
@@ -198,6 +252,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
       });
     } finally {
       setLoading(false);
+      setAssetUploading(false);
     }
   };
 
@@ -265,6 +320,8 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
           if (!isOpen) {
             setContentForm({ title: '', content_type: 'text', content_data: '', description: '', order_index: 0 });
             setFileToUpload([]);
+            setAssetUploadedUrl('');
+            setAssetFileSource('url');
           }
         }}>
           <DialogTrigger asChild>
@@ -298,6 +355,8 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                   onValueChange={(value) => {
                     setContentForm({...contentForm, content_type: value, content_data: ''});
                     setFileToUpload([]);
+                    setAssetUploadedUrl('');
+                    setAssetFileSource('url');
                   }}
                 >
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
@@ -305,15 +364,16 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                   </SelectTrigger>
                   <SelectContent className="bg-slate-700 border-slate-600">
                     <SelectItem value="text">Text Content</SelectItem>
-                    <SelectItem value="video">Video URL</SelectItem>
-                    <SelectItem value="image">Image URL</SelectItem>
-                    <SelectItem value="pdf">PDF URL</SelectItem>
+                    <SelectItem value="video">Video</SelectItem>
+                    <SelectItem value="image">Image</SelectItem>
+                    <SelectItem value="pdf">PDF</SelectItem>
                     <SelectItem value="url">External Link</SelectItem>
                     <SelectItem value="3d_model">3D Model (gLTF/GLB)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
+              {/* 3D MODEL ONLY */}
               {contentForm.content_type === '3d_model' ? (
                 <div>
                   <Label htmlFor="content-file" className="text-white">
@@ -337,6 +397,93 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                     Upload your main .gltf/.glb and any required .bin, texture, or asset files. All will be stored in a single folder to preserve relative paths.
                   </p>
                 </div>
+
+              // VIDEO, IMAGE, PDF: Upload file or use URL
+              ) : ['video', 'image', 'pdf'].includes(contentForm.content_type) ? (
+                <div>
+                  <Label className="text-white mb-1 block">Source</Label>
+                  <div className="flex items-center space-x-4 mb-2">
+                    <label className="flex items-center text-white">
+                      <input
+                        type="radio"
+                        checked={assetFileSource === 'url'}
+                        onChange={() => {
+                          setAssetFileSource('url');
+                          setFileToUpload([]);
+                          setAssetUploadedUrl('');
+                        }}
+                        className="mr-2"
+                      />
+                      URL
+                    </label>
+                    <label className="flex items-center text-white">
+                      <input
+                        type="radio"
+                        checked={assetFileSource === 'upload'}
+                        onChange={() => {
+                          setAssetFileSource('upload');
+                          setFileToUpload([]);
+                          setAssetUploadedUrl('');
+                        }}
+                        className="mr-2"
+                      />
+                      Upload File
+                    </label>
+                  </div>
+                  {assetFileSource === 'url' && (
+                    <div>
+                      <Label htmlFor="content-data" className="text-white">{contentForm.content_type === 'video' ? 'Video' : contentForm.content_type === 'image' ? 'Image' : 'PDF'} URL</Label>
+                      <Input
+                        id="content-data"
+                        type="url"
+                        value={contentForm.content_data}
+                        onChange={(e) => setContentForm({...contentForm, content_data: e.target.value})}
+                        className="bg-slate-700 border-slate-600 text-white"
+                        placeholder="https://..."
+                        required
+                      />
+                    </div>
+                  )}
+                  {assetFileSource === 'upload' && (
+                    <div>
+                      <Label htmlFor="asset-upload" className="text-white">
+                        {contentForm.content_type[0].toUpperCase() + contentForm.content_type.slice(1)} File
+                      </Label>
+                      <Input
+                        id="asset-upload"
+                        type="file"
+                        accept={
+                          contentForm.content_type === 'video'
+                            ? 'video/*'
+                            : contentForm.content_type === 'pdf'
+                            ? 'application/pdf'
+                            : 'image/*'
+                        }
+                        multiple={false}
+                        onChange={handleFileChange}
+                        className="bg-slate-700 border-slate-600 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+                        required
+                      />
+                      {fileToUpload && fileToUpload.length > 0 && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          Selected: {fileToUpload[0]?.name}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {assetUploading && (
+                    <div className="text-orange-400 text-xs mt-1 flex items-center">
+                      <Loader2 className="w-4 h-4 animate-spin mr-1" /> Uploading...
+                    </div>
+                  )}
+                  {assetUploadedUrl && (
+                    <div className="text-green-400 text-xs mt-1">
+                      Uploaded! {assetUploadedUrl}
+                    </div>
+                  )}
+                </div>
+
+              // TEXT TYPE
               ) : contentForm.content_type === 'text' ? (
                 <div>
                   <Label htmlFor="content-data" className="text-white">Content</Label>
@@ -349,6 +496,8 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                     required
                   />
                 </div>
+
+              // FALLBACK FOR EXT LINK
               ) : (
                 <div>
                   <Label htmlFor="content-data" className="text-white">URL</Label>
@@ -383,7 +532,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                   className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>
-              <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600" disabled={loading}>
+              <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600" disabled={loading || assetUploading}>
                 {loading ? 'Creating...' : 'Create Content'}
               </Button>
             </form>
