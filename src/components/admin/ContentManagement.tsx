@@ -328,6 +328,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
         loading={loading}
         selectedModule={selectedModule}
         deleteContent={deleteContent}
+        setIsCreateContentOpen={setIsCreateContentOpen}
       />
     </div>
   );
