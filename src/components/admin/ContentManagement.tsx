@@ -103,11 +103,13 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
           setLoading(false);
           return;
         }
+        // Use a common random folder for all uploaded files (GLB, GLTF, BIN, textures, etc)
+        const folderId = `${user?.id || 'shared_models'}/${Date.now()}_${Math.floor(Math.random()*1e6)}`;
         let urls: string[] = [];
+        let rootModelUrl = "";
         for (const modelFile of fileToUpload) {
-          // Sanitize filename and include both .glb/.gltf/.bin
           const safeFileName = modelFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-          const filePath = `${user?.id || 'shared_models'}/${Date.now()}_${safeFileName}`;
+          const filePath = `${folderId}/${safeFileName}`;
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('3d_models')
             .upload(filePath, modelFile, {
@@ -122,14 +124,17 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
           const { data: publicUrlData } = supabase.storage.from('3d_models').getPublicUrl(uploadData.path);
           if (publicUrlData && publicUrlData.publicUrl) {
             urls.push(publicUrlData.publicUrl);
+            if (safeFileName.endsWith('.gltf') || safeFileName.endsWith('.glb')) {
+              rootModelUrl = publicUrlData.publicUrl;
+            }
           }
         }
-        if (urls.length === 0) {
-          toast({ title: "Error", description: "All uploads failed.", variant: "destructive" });
+        if (!rootModelUrl) {
+          toast({ title: "Error", description: "Please include a .gltf or .glb file.", variant: "destructive" });
           setLoading(false);
           return;
         }
-        finalContentData = { urls }; // always array!
+        finalContentData = { rootModelUrl, urls }; // always array!
       } else {
         // Process content based on type for non-file uploads
         switch (contentForm.content_type) {

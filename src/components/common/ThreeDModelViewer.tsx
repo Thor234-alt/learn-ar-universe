@@ -1,4 +1,3 @@
-
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Stage, PresentationControls, Environment, Html } from '@react-three/drei';
@@ -11,7 +10,7 @@ interface ThreeDModelViewerProps {
 }
 
 // Enhanced Model function to support preloading of all URLs (for bin support)
-function Model({ url, fileMap }: { url: string, fileMap?: Map<string, string> }) {
+function Model({ url }: { url: string }) {
   // Patch the loader to "inject" known URLs for dependency resolution if required
   const { scene } = useGLTF(url, true);
   // Future: Could use onProgress/error for granularity
@@ -50,26 +49,13 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
 }
 
 // Support flexible multi-root mode based on provided files
-const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl, modelUrls, selectedRootUrl }) => {
-  // Consolidate all provided URLs
-  let rootUrl = '';
-  let fileList: string[] = [];
-  if (modelUrls && modelUrls.length > 0) {
-    fileList = modelUrls.filter(Boolean);
-    // Use selectedRootUrl if provided, else pick first .gltf/.glb, else just first
-    rootUrl = selectedRootUrl || fileList.find(u => u.endsWith('.gltf') || u.endsWith('.glb')) || fileList[0];
-  } else if (modelUrl) {
-    rootUrl = modelUrl;
-    fileList = [modelUrl];
-  }
-
-  if (!rootUrl) {
+const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl }) => {
+  // Only need the root file now, which will ensure dependent files are found if URLs are correct
+  if (!modelUrl) {
     return <div className="flex items-center justify-center h-full text-gray-500">No 3D model file provided.</div>;
   }
 
-  // DEBUG: Log model load events and files attempted
-  console.log('[ThreeDModelViewer] rootUrl:', rootUrl);
-  console.log('[ThreeDModelViewer] all files:', fileList);
+  console.log('[ThreeDModelViewer] rootUrl:', modelUrl);
 
   return (
     <ErrorBoundary>
@@ -86,7 +72,7 @@ const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl, modelUr
             >
               <Stage environment={null} intensity={0.6}>
                 <Environment preset="city" />
-                <Model url={rootUrl} />
+                <Model url={modelUrl} />
               </Stage>
             </PresentationControls>
             <OrbitControls 

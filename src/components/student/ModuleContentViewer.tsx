@@ -287,46 +287,18 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
   };
 
   const renderThreeDModelContent = (contentData: any, title: string) => {
-    // Make sure to expect array of file URLs
-    const urls: string[] =
-      Array.isArray(contentData?.urls) && contentData.urls.length > 0
-        ? contentData.urls.filter(Boolean)
-        : [];
-    
-    if (!urls.length) {
+    // Expecting new format: { rootModelUrl: string, urls: string[] }
+    const rootModelUrl = contentData?.rootModelUrl;
+    if (!rootModelUrl) {
       return (
         <div className="flex items-center justify-center h-full text-gray-500">
-          <p>No 3D model files available for this content.</p>
+          <p>No 3D model root file available for this content.</p>
         </div>
       );
     }
-
-    // Determine available root files (.gltf or .glb)
-    const rootFiles = urls.filter(u => u.endsWith('.gltf') || u.endsWith('.glb'));
-    const hasMultipleRoots = rootFiles.length > 1;
-
-    // Restrict selectedModelIdx if less roots
-    const safeSelectedIdx = selectedModelIdx >= rootFiles.length ? 0 : selectedModelIdx;
-
+    // Optional preview: list secondary files (e.g. .bin)
     return (
       <div className="flex flex-col h-full w-full">
-        {hasMultipleRoots && (
-          <div className="flex flex-row space-x-2 mb-2">
-            {rootFiles.map((u, i) => (
-              <button
-                key={i}
-                onClick={() => setSelectedModelIdx(i)}
-                className={`px-3 py-1 rounded text-xs font-medium ${
-                  i === safeSelectedIdx
-                    ? "bg-blue-600 text-white"
-                    : "bg-gray-200 text-gray-700 hover:bg-blue-100"
-                }`}
-              >
-                Model {i + 1}
-              </button>
-            ))}
-          </div>
-        )}
         <div className="flex-1 min-h-[300px] h-[48vw] max-h-[70vh] w-full rounded-lg bg-gray-100">
           <Suspense
             fallback={
@@ -337,9 +309,10 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
             }
           >
             <ThreeDModelViewer
-              modelUrls={urls}
-              // Pass all URLs so .bin dependencies load, and ThreeDModelViewer will select appropriate root.
-              selectedRootUrl={rootFiles.length > 0 ? rootFiles[safeSelectedIdx] : urls[0]}
+              modelUrl={rootModelUrl}
+              // Optionally pass secondary files if needed for future
+              modelUrls={contentData?.urls}
+              selectedRootUrl={rootModelUrl}
             />
           </Suspense>
         </div>
