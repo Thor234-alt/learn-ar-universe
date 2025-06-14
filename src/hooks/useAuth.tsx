@@ -33,67 +33,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const createOrUpdateProfile = async (userId: string, userMetadata: any) => {
-    try {
-      // Check if profile already exists
-      const { data: existingProfile, error: fetchError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('Error checking existing profile:', fetchError);
-        return;
-      }
-
-      if (!existingProfile) {
-        // Create new profile
-        const { data: newProfile, error: insertError } = await supabase
-          .from('profiles')
-          .insert({
-            id: userId,
-            email: userMetadata.email || '',
-            full_name: userMetadata.full_name || userMetadata.name || '',
-            role: userMetadata.role || 'student'
-          })
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error('Error creating profile:', insertError);
-          return;
-        }
-
-        setProfile(newProfile);
-      } else {
-        setProfile(existingProfile);
-      }
-    } catch (error) {
-      console.error('Error in createOrUpdateProfile:', error);
-    }
-  };
-
   const fetchProfile = async (userId: string) => {
     try {
+      console.log('Fetching profile for user:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
       
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error fetching profile:', error);
-        return;
+        return null;
       }
       
       if (data) {
+        console.log('Profile found:', data);
         setProfile(data);
-        // Redirect based on role after profile is fetched
-        setTimeout(() => redirectBasedOnRole(data.role), 100);
+        return data;
       }
+      
+      console.log('No profile found for user:', userId);
+      return null;
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      console.error('Error in fetchProfile:', error);
+      return null;
     }
   };
 
@@ -105,6 +69,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return;
     }
 
+    console.log('Redirecting based on role:', role);
+    
     switch (role) {
       case 'student':
         window.location.href = '/student-dashboard';
@@ -117,37 +83,47 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         window.location.href = '/teacher-dashboard';
         break;
       default:
+        console.log('Unknown role, staying on current page');
         break;
     }
   };
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.id);
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          if (event === 'SIGNED_IN' && session.user.user_metadata) {
-            // For new signups, create profile first
-            await createOrUpdateProfile(session.user.id, session.user.user_metadata);
-          } else {
-            // For existing users, just fetch profile
-            await fetchProfile(session.user.id);
+    let mounted = true;
+
+    const handleAuthStateChange = async (event: any, session: Session | null) => {
+      console.log('Auth state changed:', event, session?.user?.id);
+      
+      if (!mounted) return;
+
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        // Wait a bit for the database trigger to create the profile
+        setTimeout(async () => {
+          if (!mounted) return;
+          
+          const profile = await fetchProfile(session.user.id);
+          if (profile) {
+            setTimeout(() => redirectBasedOnRole(profile.role), 100);
           }
-        } else {
-          setProfile(null);
-        }
-        
-        setLoading(false);
+        }, 1000);
+      } else {
+        setProfile(null);
       }
-    );
+      
+      setLoading(false);
+    };
+
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session:', session?.user?.id);
+      if (!mounted) return;
+      
+      console.log('Initial session check:', session?.user?.id);
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -158,13 +134,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string, role: 'admin' | 'student' | 'client' | 'teacher') => {
+    console.log('Signing up user:', email, 'with role:', role);
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -177,10 +157,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     });
     
+    if (data.user && !error) {
+      console.log('User signed up successfully:', data.user.id);
+    }
+    
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
+    console.log('Signing in user:', email);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password
