@@ -84,7 +84,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       // Allow multiple selection
-      setFileToUpload(Array.from(e.target.files));
+      setFileToUpload(Array.from(e.target.files)); // keeps .glb, .gltf, .bin
     } else {
       setFileToUpload([]);
     }
@@ -99,13 +99,13 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
       let finalContentData: any;
       if (contentForm.content_type === '3d_model') {
         if (!fileToUpload || fileToUpload.length === 0) {
-          toast({ title: "Error", description: "Please select 3D model file(s) (.glb or .gltf).", variant: "destructive" });
+          toast({ title: "Error", description: "Please select at least one 3D model file (.glb, .gltf, .bin).", variant: "destructive" });
           setLoading(false);
           return;
         }
         let urls: string[] = [];
         for (const modelFile of fileToUpload) {
-          // Sanitize filename
+          // Sanitize filename and include both .glb/.gltf/.bin
           const safeFileName = modelFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
           const filePath = `${user?.id || 'shared_models'}/${Date.now()}_${safeFileName}`;
           const { data: uploadData, error: uploadError } = await supabase.storage
@@ -129,7 +129,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
           setLoading(false);
           return;
         }
-        finalContentData = { urls };
+        finalContentData = { urls }; // always array!
       } else {
         // Process content based on type for non-file uploads
         switch (contentForm.content_type) {
@@ -304,14 +304,14 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
 
               {contentForm.content_type === '3d_model' ? (
                 <div>
-                  <Label htmlFor="content-file" className="text-white">3D Model File(s)</Label>
+                  <Label htmlFor="content-file" className="text-white">3D Model File(s) (.glb, .gltf, .bin)</Label>
                   <Input
                     id="content-file"
                     type="file"
                     multiple
                     onChange={handleFileChange}
                     className="bg-slate-700 border-slate-600 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
-                    accept=".glb,.gltf"
+                    accept=".glb,.gltf,.bin"
                     required
                   />
                   {fileToUpload && fileToUpload.length > 0 && (
@@ -319,6 +319,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                       Selected: {fileToUpload.map(f => f.name).join(', ')}
                     </p>
                   )}
+                  <p className="text-xs text-gray-400 mt-1">Upload your main .gltf/.glb and any associated .bin buffer files.</p>
                 </div>
               ) : contentForm.content_type === 'text' ? (
                 <div>

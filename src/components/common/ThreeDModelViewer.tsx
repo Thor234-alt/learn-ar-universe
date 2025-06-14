@@ -5,11 +5,15 @@ import { OrbitControls, useGLTF, Stage, PresentationControls, Environment, Html 
 import { Loader2 } from 'lucide-react';
 
 interface ThreeDModelViewerProps {
-  modelUrl: string;
+  // Accept either a string or array of model file URLs
+  modelUrl?: string;
+  modelUrls?: string[];
 }
 
 function Model({ url }: { url: string }) {
-  const { scene } = useGLTF(url);
+  // Drei/three.js will fetch .bin dependencies if referenced inside the .gltf and publicly accessible!
+  // Only the main .gltf or .glb URL needs to be loaded; .bin is loaded by loader if referenced
+  const { scene } = useGLTF(url, true); // prefetch true for cache
   return <primitive object={scene} scale={1} />;
 }
 
@@ -20,7 +24,6 @@ const ModelLoader: React.FC = () => (
   </div>
 );
 
-// Error boundary wrapper for Three.js viewer to prevent crashes
 class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, errorMsg: string}> {
   constructor(props: any) {
     super(props);
@@ -30,7 +33,6 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
     return { hasError: true, errorMsg: error.message || "Failed to render 3D model." };
   }
   componentDidCatch(error: Error, info: any) {
-    // log error if needed
     console.error('3D Model Error:', error, info);
   }
   render() {
@@ -46,12 +48,20 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
   }
 }
 
-const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl }) => {
-  if (!modelUrl) {
-    return <div className="flex items-center justify-center h-full text-gray-500">No 3D model URL provided.</div>;
+const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl, modelUrls }) => {
+  // Prioritize array; fallback to single modelUrl
+  let mainUrl = '';
+  if (modelUrls && modelUrls.length > 0) {
+    // Prefer first .gltf/.glb if present, fallback any
+    mainUrl = modelUrls.find(u => u.endsWith('.gltf') || u.endsWith('.glb')) || modelUrls[0];
+  } else if (modelUrl) {
+    mainUrl = modelUrl;
   }
 
-  // Wrap the Canvas in ErrorBoundary
+  if (!mainUrl) {
+    return <div className="flex items-center justify-center h-full text-gray-500">No 3D model file provided.</div>;
+  }
+
   return (
     <ErrorBoundary>
       <div className="w-full h-full relative bg-gray-100 rounded">
@@ -67,7 +77,7 @@ const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl }) => {
             >
               <Stage environment={null} intensity={0.6}>
                 <Environment preset="city" />
-                <Model url={modelUrl} />
+                <Model url={mainUrl} />
               </Stage>
             </PresentationControls>
             <OrbitControls 
@@ -85,4 +95,3 @@ const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl }) => {
 };
 
 export default ThreeDModelViewer;
-

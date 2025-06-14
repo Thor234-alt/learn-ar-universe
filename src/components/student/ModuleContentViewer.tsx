@@ -286,12 +286,13 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
   };
 
   const renderThreeDModelContent = (contentData: any, title: string) => {
+    // Always expect contentData.urls to be array of file URLs
     const urls: string[] =
       Array.isArray(contentData?.urls) && contentData.urls.length > 0
-        ? contentData.urls
-        : contentData && contentData.url ? [contentData.url] : [];
+        ? contentData.urls.filter(Boolean)
+        : [];
     const [selectedUrlIdx, setSelectedUrlIdx] = useState(0); // declare hook inside function
-    // If no files, show a message
+
     if (!urls.length) {
       return (
         <div className="flex items-center justify-center h-full text-gray-500">
@@ -299,9 +300,21 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
         </div>
       );
     }
+
+    // Allow switching between different .gltf/.glb root files for an entry
+    const modelGroupUrls = (urls: string[], activeIdx: number) => {
+      // Find relevant root file and bin files
+      const all = urls;
+      const selectedFile = all[activeIdx];
+      // If .gltf root file, collect bin in same directory (pass all urls).
+      // Logic for buffer: Drei/Three.js will fetch .bin as long as the URL is valid and referenced in .gltf.
+      return { rootUrl: selectedFile, allFiles: all };
+    };
+
+    const { rootUrl, allFiles } = modelGroupUrls(urls, selectedUrlIdx);
+
     return (
       <div className="flex flex-col h-full w-full">
-        {/* 3D Model Gallery Selector if multiple */}
         {urls.length > 1 && (
           <div className="flex flex-row space-x-2 mb-2">
             {urls.map((u, i) => (
@@ -319,7 +332,6 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
             ))}
           </div>
         )}
-        {/* 3D Model Viewer */}
         <div className="flex-1 min-h-[300px] h-[48vw] max-h-[70vh] w-full rounded-lg bg-gray-100">
           <Suspense
             fallback={
@@ -330,7 +342,8 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
             }
           >
             <ThreeDModelViewer
-              modelUrl={urls[selectedUrlIdx]}
+              modelUrl={rootUrl}
+              // For now we only show one at a time, but Drei loader will fetch .bin as long as it's on the server and referenced.
             />
           </Suspense>
         </div>
