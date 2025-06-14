@@ -1,7 +1,7 @@
 
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, useGLTF, Stage, PresentationControls, Environment, Html } from '@react-three/drei'; // Added Html
+import { OrbitControls, useGLTF, Stage, PresentationControls, Environment, Html } from '@react-three/drei';
 import { Loader2 } from 'lucide-react';
 
 interface ThreeDModelViewerProps {
@@ -14,9 +14,8 @@ function Model({ url }: { url: string }) {
 }
 
 const ModelLoader: React.FC = () => (
-  // Centering is handled by Html component's `center` prop
   <div style={{ color: 'black', textAlign: 'center' }}>
-    <Loader2 className="w-12 h-12 animate-spin text-blue-600 mb-2 mx-auto" /> {/* Added mx-auto for centering icon */}
+    <Loader2 className="w-12 h-12 animate-spin text-blue-600 mb-2 mx-auto" />
     <p>Loading 3D Model...</p>
   </div>
 );
@@ -31,7 +30,7 @@ const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl }) => {
       <Canvas dpr={[1, 2]} camera={{ fov: 45, position: [0, 2, 5] }} style={{ touchAction: 'pan-y' }}>
         <color attach="background" args={['#e0e0e0']} />
         
-        <Suspense fallback={<Html center><ModelLoader /></Html>}> {/* Used Html directly */}
+        <Suspense fallback={<Html center><ModelLoader /></Html>}>
           <PresentationControls
             speed={1.5}
             global
@@ -39,7 +38,7 @@ const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl }) => {
             polar={[-0.2, Math.PI / 3]}
             azimuth={[-Math.PI / 4, Math.PI / 4]}
           >
-            <Stage environment={null} intensity={0.6} contactShadowOpacity={0.5} shadowBias={-0.0015}>
+            <Stage environment={null} intensity={0.6} shadowBias={-0.0015}>
               <Environment preset="city" />
               <Model url={modelUrl} />
             </Stage>
@@ -56,7 +55,5 @@ const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl }) => {
     </div>
   );
 };
-
-// Removed HtmlAsReactComponent helper
 
 export default ThreeDModelViewer;
