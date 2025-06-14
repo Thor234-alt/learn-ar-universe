@@ -146,6 +146,87 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
   const completedCount = contents.filter(content => isContentCompleted(content.id)).length;
   const progressPercentage = contents.length > 0 ? Math.round((completedCount / contents.length) * 100) : 0;
 
+  const renderVideoContent = (videoData: any) => {
+    const videoUrl = videoData?.url;
+    if (!videoUrl) {
+      return (
+        <div className="flex items-center justify-center h-full text-gray-500">
+          <p>No video URL provided</p>
+        </div>
+      );
+    }
+
+    // Check if it's a YouTube URL
+    const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be');
+    
+    if (isYouTube) {
+      // Convert YouTube URL to embed format
+      let embedUrl = videoUrl;
+      if (videoUrl.includes('watch?v=')) {
+        const videoId = videoUrl.split('watch?v=')[1].split('&')[0];
+        embedUrl = `https://www.youtube.com/embed/${videoId}`;
+      } else if (videoUrl.includes('youtu.be/')) {
+        const videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
+        embedUrl = `https://www.youtube.com/embed/${videoId}`;
+      }
+      
+      return (
+        <div className="h-full">
+          <iframe
+            src={embedUrl}
+            className="w-full h-full rounded"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            title={selectedContent?.title}
+          />
+        </div>
+      );
+    }
+
+    // Check if it's a Vimeo URL
+    const isVimeo = videoUrl.includes('vimeo.com');
+    if (isVimeo) {
+      const videoId = videoUrl.split('/').pop();
+      const embedUrl = `https://player.vimeo.com/video/${videoId}`;
+      
+      return (
+        <div className="h-full">
+          <iframe
+            src={embedUrl}
+            className="w-full h-full rounded"
+            frameBorder="0"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+            title={selectedContent?.title}
+          />
+        </div>
+      );
+    }
+
+    // For direct video files or other video URLs, use HTML5 video element
+    return (
+      <div className="h-full flex items-center justify-center">
+        <video
+          controls
+          className="max-w-full max-h-full rounded"
+          preload="metadata"
+        >
+          <source src={videoUrl} type="video/mp4" />
+          <source src={videoUrl} type="video/webm" />
+          <source src={videoUrl} type="video/ogg" />
+          Your browser does not support the video tag.
+          <p>
+            Your browser doesn't support HTML5 video. 
+            <a href={videoUrl} target="_blank" rel="noopener noreferrer">
+              Click here to view the video
+            </a>
+          </p>
+        </video>
+      </div>
+    );
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -237,17 +318,7 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
                   </div>
                 )}
                 
-                {selectedContent.content_type === 'video' && (
-                  <div className="h-full">
-                    <iframe
-                      src={selectedContent.content_data?.url}
-                      className="w-full h-full rounded"
-                      frameBorder="0"
-                      allowFullScreen
-                      title={selectedContent.title}
-                    />
-                  </div>
-                )}
+                {selectedContent.content_type === 'video' && renderVideoContent(selectedContent.content_data)}
                 
                 {selectedContent.content_type === 'image' && (
                   <div className="flex items-center justify-center h-full">
