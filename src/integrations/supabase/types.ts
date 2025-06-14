@@ -20,6 +20,7 @@ export type Database = {
           is_active: boolean
           module_id: string
           order_index: number
+          sub_info: string | null
           title: string
           updated_at: string
         }
@@ -33,6 +34,7 @@ export type Database = {
           is_active?: boolean
           module_id: string
           order_index?: number
+          sub_info?: string | null
           title: string
           updated_at?: string
         }
@@ -46,6 +48,7 @@ export type Database = {
           is_active?: boolean
           module_id?: string
           order_index?: number
+          sub_info?: string | null
           title?: string
           updated_at?: string
         }

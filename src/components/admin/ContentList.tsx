@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Card } from "@/components/ui/card";
 import ContentCard from "./ContentCard";
@@ -11,6 +12,8 @@ type ContentListProps = {
   selectedModule: Module | undefined;
   deleteContent: (contentId: string) => void;
   setIsCreateContentOpen: (open: boolean) => void;
+  // New prop: Sub info editing
+  onEditSubInfo?: (id: string, subInfo: string | null | undefined) => void;
 };
 
 const ContentList: React.FC<ContentListProps> = ({
@@ -18,7 +21,8 @@ const ContentList: React.FC<ContentListProps> = ({
   loading,
   selectedModule,
   deleteContent,
-  setIsCreateContentOpen
+  setIsCreateContentOpen,
+  onEditSubInfo
 }) => {
   if (loading) {
     return (
@@ -39,6 +43,7 @@ const ContentList: React.FC<ContentListProps> = ({
           key={content.id}
           content={content}
           deleteContent={deleteContent}
+          onEditSubInfo={onEditSubInfo}
         />
       ))}
       {contents.length === 0 && !loading && (

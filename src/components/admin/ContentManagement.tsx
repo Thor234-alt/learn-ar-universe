@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import ContentList from "./ContentList";
 import CreateContentDialog from "./CreateContentDialog";
+import EditSubInfoDialog from "./EditSubInfoDialog";
 
 type Module = {
   id: string;
@@ -28,6 +29,7 @@ type ModuleContent = {
   order_index: number;
   is_active: boolean;
   created_at: string;
+  sub_info?: string | null; // <-- Add sub_info
 };
 
 type ContentManagementProps = {
@@ -54,6 +56,11 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
   const [assetFileSource, setAssetFileSource] = useState<'url' | 'upload'>('url');
   const [assetUploading, setAssetUploading] = useState(false);
   const [assetUploadedUrl, setAssetUploadedUrl] = useState('');
+
+  // Add state for editing sub_info
+  const [editingContentId, setEditingContentId] = useState<string | null>(null);
+  const [subInfoValue, setSubInfoValue] = useState<string>("");
+  const [savingSubInfo, setSavingSubInfo] = useState<boolean>(false);
 
   useEffect(() => {
     if (selectedModuleId) {
@@ -134,8 +141,6 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
       let finalContentData: any;
       // 3D model remains special!
       if (contentForm.content_type === '3d_model') {
-        // ... keep all 3D model upload code the same ...
-        // ... keep unchanged code (as previously implemented for 3d models) ...
         if (!fileToUpload || fileToUpload.length === 0) {
           toast({ title: "Error", description: "Please select all relevant 3D model and asset files.", variant: "destructive" });
           setLoading(false);
@@ -295,6 +300,33 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
     }
   };
 
+  // Add handler for saving sub_info
+  const handleSaveSubInfo = async (contentId: string, subInfo: string) => {
+    setSavingSubInfo(true);
+    try {
+      const { error } = await supabase
+        .from("module_content")
+        .update({ sub_info: subInfo })
+        .eq("id", contentId);
+
+      if (error) throw error;
+      toast({
+        title: "Success",
+        description: "Sub information updated.",
+      });
+      setEditingContentId(null);
+      fetchModuleContent();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update sub info.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingSubInfo(false);
+    }
+  };
+
   if (!selectedModuleId) {
     return (
       <Card className="bg-slate-800 border-slate-700">
@@ -329,6 +361,21 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
         selectedModule={selectedModule}
         deleteContent={deleteContent}
         setIsCreateContentOpen={setIsCreateContentOpen}
+        onEditSubInfo={(contentId, currentSubInfo) => {
+          setEditingContentId(contentId);
+          setSubInfoValue(currentSubInfo || "");
+        }}
+      />
+      {/* Sub info editing dialog */}
+      <EditSubInfoDialog
+        open={!!editingContentId}
+        onOpenChange={(o) => {
+          if (!o) setEditingContentId(null);
+        }}
+        subInfoValue={subInfoValue}
+        setSubInfoValue={setSubInfoValue}
+        onSave={() => editingContentId && handleSaveSubInfo(editingContentId, subInfoValue)}
+        loading={savingSubInfo}
       />
     </div>
   );

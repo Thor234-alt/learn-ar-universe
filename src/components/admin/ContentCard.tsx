@@ -1,13 +1,20 @@
-
 import React from "react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, FileText, Video, Image, FileIcon, Link, Box } from "lucide-react";
+import { Trash2, FileText, Video, Image, FileIcon, Link, Box, Edit3 } from "lucide-react";
 import { ModuleContent } from "./ContentManagement";
 
 type ContentCardProps = {
   content: ModuleContent;
   deleteContent: (id: string) => void;
+  // Props to handle sub info editing
+  onEditSubInfo?: (id: string, subInfo: string | null | undefined) => void;
 };
 
 const getContentIcon = (type: string) => {
@@ -29,7 +36,11 @@ const getContentIcon = (type: string) => {
   }
 };
 
-const ContentCard: React.FC<ContentCardProps> = ({ content, deleteContent }) => (
+const ContentCard: React.FC<ContentCardProps> = ({
+  content,
+  deleteContent,
+  onEditSubInfo
+}) => (
   <Card className="bg-slate-800 border-slate-700">
     <CardHeader className="pb-3">
       <div className="flex items-center justify-between">
@@ -41,6 +52,18 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, deleteContent }) => 
           <span className="text-xs text-gray-400 capitalize bg-slate-700 px-2 py-1 rounded">
             {content.content_type.replace("_", " ")}
           </span>
+          {/* Sub Info Edit Button */}
+          {onEditSubInfo && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white"
+              onClick={() => onEditSubInfo(content.id, content.sub_info)}
+              aria-label="Edit sub info"
+            >
+              <Edit3 className="w-4 h-4" />
+            </Button>
+          )}
           <Button
             onClick={() => deleteContent(content.id)}
             variant="outline"
@@ -52,7 +75,9 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, deleteContent }) => 
         </div>
       </div>
       {content.description && (
-        <CardDescription className="text-gray-400 mt-1">{content.description}</CardDescription>
+        <CardDescription className="text-gray-400 mt-1">
+          {content.description}
+        </CardDescription>
       )}
     </CardHeader>
     <CardContent>
@@ -95,6 +120,11 @@ const ContentCard: React.FC<ContentCardProps> = ({ content, deleteContent }) => 
               </a>
             </div>
           )}
+        {/* Sub Info Display */}
+        <div className="text-sm">
+          <span className="text-gray-400">Sub Information: </span>
+          <span className="text-white whitespace-pre-line">{content.sub_info || <span className="text-gray-500 italic">No sub info</span>}</span>
+        </div>
       </div>
     </CardContent>
   </Card>
