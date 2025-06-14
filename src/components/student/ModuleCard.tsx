@@ -42,13 +42,7 @@ const ModuleCard = ({ module, topics, getTopicProgress, onStartTopic, onViewModu
 
   const handleViewContent = () => {
     if (onViewModuleContent) {
-      // Use the first topic's ID if available, otherwise use empty string
-      const firstTopicId = topics.length > 0 ? topics[0].id : '';
       onViewModuleContent(module.id);
-      // Also trigger the topic start for the first topic to open content viewer
-      if (firstTopicId) {
-        onStartTopic(firstTopicId, module.id);
-      }
     }
   };
 
