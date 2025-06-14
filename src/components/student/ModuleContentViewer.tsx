@@ -7,6 +7,9 @@ import { Progress } from '@/components/ui/progress';
 import { FileText, Video, Image, FileIcon, Link, CheckCircle, Play, Box, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ThreeDModelViewer from '@/components/common/ThreeDModelViewer';
+import ContentListSidebar from './moduleContentViewer/ContentListSidebar';
+import ContentViewerHeader from './moduleContentViewer/ContentViewerHeader';
+import ContentDisplay from './moduleContentViewer/ContentDisplay';
 
 type ModuleContent = {
   id: string;
@@ -465,146 +468,30 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg w-full max-w-6xl h-[90vh] md:h-[80vh] flex flex-col md:flex-row overflow-hidden shadow-2xl">
-        {/* Content List Sidebar */}
-        <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r bg-gray-50 p-4 overflow-y-auto">
-          {/* ... keep existing code (sidebar header, progress bar, content list mapping) */}
-          <div className="mb-4">
-            <h3 className="font-semibold text-lg mb-2">Module Content</h3>
-            <div className="mb-2">
-              <div className="flex justify-between text-sm text-gray-600 mb-1">
-                <span>Progress</span>
-                <span>{completedCount}/{contents.length}</span>
-              </div>
-              <Progress value={progressPercentage} className="h-2" />
-            </div>
-          </div>
-
-          {contents.length === 0 && !loading ? (
-            <div className="text-center text-gray-500 py-8">
-              <p>No content available for this module yet.</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {contents.map((content) => (
-                <Card 
-                  key={content.id} 
-                  className={`cursor-pointer transition-colors hover:shadow-md ${
-                    selectedContent?.id === content.id ? 'ring-2 ring-blue-500 shadow-lg' : 'hover:bg-gray-100'
-                  }`}
-                  onClick={() => setSelectedContent(content)}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-center space-x-3">
-                      <div className="text-blue-600">
-                        {getContentIcon(content.content_type)}
-                      </div>
-                      <span className="flex-1 text-sm font-medium truncate">{content.title}</span>
-                      {isContentCompleted(content.id) ? (
-                        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-                      ) : (
-                        <Play className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                      )}
-                    </div>
-                    {content.description && (
-                      <p className="text-xs text-gray-500 mt-1.5 line-clamp-2">{content.description}</p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Content Viewer */}
+        {/* Sidebar */}
+        <ContentListSidebar
+          contents={contents}
+          loading={loading}
+          completedCount={completedCount}
+          progressPercentage={progressPercentage}
+          selectedContent={selectedContent}
+          setSelectedContent={setSelectedContent}
+          isContentCompleted={isContentCompleted}
+        />
+        {/* Main Content Area */}
         <div className="flex-1 flex flex-col bg-white">
-          {/* Header */}
-          <div className="border-b p-4 flex items-center justify-between bg-gray-50 md:bg-white">
-            {/* ... keep existing code (header content: icon, title, buttons) */}
-            <div className="flex items-center space-x-2 min-w-0">
-              {selectedContent && <div className="text-gray-700">{getContentIcon(selectedContent.content_type)}</div>}
-              <h2 className="text-xl font-semibold truncate">{selectedContent?.title || 'Module Content'}</h2>
-            </div>
-            <div className="flex items-center space-x-2">
-              {selectedContent && !isContentCompleted(selectedContent.id) && (
-                <Button 
-                  onClick={() => markContentComplete(selectedContent.id)}
-                  className="bg-green-600 hover:bg-green-700 text-white"
-                  size="sm"
-                >
-                  Mark Complete
-                </Button>
-              )}
-              <Button onClick={onClose} variant="outline" size="sm">
-                Close
-              </Button>
-            </div>
-          </div>
-
-          {/* Content Display */}
+          <ContentViewerHeader
+            selectedContent={selectedContent}
+            isContentCompleted={isContentCompleted}
+            onMarkComplete={() => selectedContent && markContentComplete(selectedContent.id)}
+            onClose={onClose}
+          />
           <div className="flex-1 p-2 md:p-4 overflow-y-auto relative">
-            {loading && !selectedContent ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
-              </div>
-            ) : selectedContent ? (
-              <div className="h-full w-full">
-                {selectedContent.content_type === 'text' && (
-                  <div
-                    className="prose max-w-none"
-                    id="content-text-panel"
-                    style={{ height: "100%", overflow: "auto" }}
-                    onScroll={() => saveContentProgress(false)}
-                  >
-                    <div className="whitespace-pre-wrap">
-                      {selectedContent.content_data?.text}
-                    </div>
-                  </div>
-                )}
-                
-                {selectedContent.content_type === 'video' &&
-                  renderVideoContent({
-                    ...selectedContent.content_data,
-                    id: "content-video-tag",
-                    onTimeUpdate: () => saveContentProgress(false),
-                  })}
-                
-                {selectedContent.content_type === 'image' && (
-                  <div className="flex items-center justify-center h-full">
-                    <img
-                      src={selectedContent.content_data?.url}
-                      alt={selectedContent.title}
-                      className="max-w-full max-h-full object-contain rounded"
-                    />
-                  </div>
-                )}
-                
-                {(selectedContent.content_type === 'pdf' || selectedContent.content_type === 'url') && (
-                  <div className="h-full">
-                    <iframe
-                      src={selectedContent.content_data?.url}
-                      className="w-full h-full rounded"
-                      frameBorder="0"
-                      title={selectedContent.title}
-                    />
-                  </div>
-                )}
-
-                {selectedContent.content_type === '3d_model' &&
-                  renderThreeDModelContent(selectedContent.content_data, selectedContent.title)
-                }
-              </div>
-            ) : contents.length === 0 && !loading ? (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                <div className="text-center">
-                  <p className="text-lg mb-2">No content available</p>
-                  <p className="text-sm">This module doesn't have any content yet.</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                Select content to view
-              </div>
-            )}
+            <ContentDisplay
+              selectedContent={selectedContent}
+              loading={loading}
+              saveContentProgress={saveContentProgress}
+            />
           </div>
         </div>
       </div>
