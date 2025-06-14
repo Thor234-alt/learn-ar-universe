@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,8 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Edit, Trash2, FileText, Video, Image, FileIcon, Link } from 'lucide-react';
+import { Plus, Edit, Trash2, FileText, Video, Image, FileIcon, Link, Cube } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/useAuth';
 
 type Module = {
   id: string;
@@ -34,6 +34,7 @@ type ContentManagementProps = {
 };
 
 const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps) => {
+  const { user } = useAuth();
   const [contents, setContents] = useState<ModuleContent[]>([]);
   const [loading, setLoading] = useState(false);
   const [isCreateContentOpen, setIsCreateContentOpen] = useState(false);
@@ -47,6 +48,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
     description: '',
     order_index: 0
   });
+  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
 
   useEffect(() => {
     if (selectedModuleId) {
@@ -79,32 +81,64 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFileToUpload(e.target.files[0]);
+    } else {
+      setFileToUpload(null);
+    }
+  };
+
   const handleCreateContent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedModuleId) return;
 
+    setLoading(true);
     try {
-      let contentData;
+      let finalContentData: any;
       
-      // Process content based on type
-      switch (contentForm.content_type) {
-        case 'text':
-          contentData = { text: contentForm.content_data };
-          break;
-        case 'video':
-          contentData = { url: contentForm.content_data };
-          break;
-        case 'url':
-          contentData = { url: contentForm.content_data };
-          break;
-        case 'image':
-          contentData = { url: contentForm.content_data };
-          break;
-        case 'pdf':
-          contentData = { url: contentForm.content_data };
-          break;
-        default:
-          contentData = { content: contentForm.content_data };
+      if (contentForm.content_type === '3d_model') {
+        if (!fileToUpload) {
+          toast({ title: "Error", description: "Please select a 3D model file (.glb or .gltf).", variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+        // Sanitize filename (optional, but good practice)
+        const safeFileName = fileToUpload.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const filePath = `${user?.id || 'shared_models'}/${Date.now()}_${safeFileName}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('3d_models')
+          .upload(filePath, fileToUpload, {
+            cacheControl: '3600',
+            upsert: false, // Important: set to false to avoid accidental overwrites. Change if needed.
+          });
+
+        if (uploadError) {
+          console.error('Error uploading 3D model:', uploadError);
+          toast({ title: "Error", description: `Failed to upload 3D model: ${uploadError.message}`, variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+        
+        const { data: publicUrlData } = supabase.storage.from('3d_models').getPublicUrl(uploadData.path);
+        finalContentData = { url: publicUrlData.publicUrl };
+
+      } else {
+        // Process content based on type for non-file uploads
+        switch (contentForm.content_type) {
+          case 'text':
+            finalContentData = { text: contentForm.content_data };
+            break;
+          case 'video':
+          case 'url':
+          case 'image':
+          case 'pdf':
+            finalContentData = { url: contentForm.content_data };
+            break;
+          default:
+            finalContentData = { content: contentForm.content_data }; // Fallback
+        }
       }
 
       const { error } = await supabase
@@ -113,9 +147,11 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
           module_id: selectedModuleId,
           title: contentForm.title,
           content_type: contentForm.content_type,
-          content_data: contentData,
+          content_data: finalContentData,
           description: contentForm.description,
-          order_index: contentForm.order_index
+          order_index: contentForm.order_index,
+          is_active: true,
+          created_by: user?.id
         });
 
       if (error) throw error;
@@ -132,16 +168,18 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
         description: '',
         order_index: 0
       });
-
+      setFileToUpload(null);
       setIsCreateContentOpen(false);
       fetchModuleContent();
     } catch (error) {
       console.error('Error creating content:', error);
       toast({
         title: "Error",
-        description: "Failed to create content",
+        description: `Failed to create content: ${error.message}`,
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -177,6 +215,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
       case 'image': return <Image className="w-4 h-4" />;
       case 'pdf': return <FileIcon className="w-4 h-4" />;
       case 'url': return <Link className="w-4 h-4" />;
+      case '3d_model': return <Cube className="w-4 h-4" />;
       default: return <FileText className="w-4 h-4" />;
     }
   };
@@ -203,7 +242,13 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
           <p className="text-gray-400">Manage learning materials and resources</p>
         </div>
         
-        <Dialog open={isCreateContentOpen} onOpenChange={setIsCreateContentOpen}>
+        <Dialog open={isCreateContentOpen} onOpenChange={(isOpen) => {
+          setIsCreateContentOpen(isOpen);
+          if (!isOpen) {
+            setContentForm({ title: '', content_type: 'text', content_data: '', description: '', order_index: 0 });
+            setFileToUpload(null);
+          }
+        }}>
           <DialogTrigger asChild>
             <Button className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700">
               <Plus className="w-4 h-4 mr-2" />
@@ -230,7 +275,13 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
               </div>
               <div>
                 <Label htmlFor="content-type" className="text-white">Content Type</Label>
-                <Select value={contentForm.content_type} onValueChange={(value) => setContentForm({...contentForm, content_type: value})}>
+                <Select 
+                  value={contentForm.content_type} 
+                  onValueChange={(value) => {
+                    setContentForm({...contentForm, content_type: value, content_data: ''});
+                    setFileToUpload(null);
+                  }}
+                >
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
                     <SelectValue />
                   </SelectTrigger>
@@ -240,14 +291,27 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                     <SelectItem value="image">Image URL</SelectItem>
                     <SelectItem value="pdf">PDF URL</SelectItem>
                     <SelectItem value="url">External Link</SelectItem>
+                    <SelectItem value="3d_model">3D Model (gLTF/GLB)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="content-data" className="text-white">
-                  {contentForm.content_type === 'text' ? 'Content' : 'URL'}
-                </Label>
-                {contentForm.content_type === 'text' ? (
+
+              {contentForm.content_type === '3d_model' ? (
+                <div>
+                  <Label htmlFor="content-file" className="text-white">3D Model File</Label>
+                  <Input
+                    id="content-file"
+                    type="file"
+                    onChange={handleFileChange}
+                    className="bg-slate-700 border-slate-600 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+                    accept=".glb,.gltf"
+                    required
+                  />
+                  {fileToUpload && <p className="text-xs text-gray-400 mt-1">Selected: {fileToUpload.name}</p>}
+                </div>
+              ) : contentForm.content_type === 'text' ? (
+                <div>
+                  <Label htmlFor="content-data" className="text-white">Content</Label>
                   <Textarea
                     id="content-data"
                     value={contentForm.content_data}
@@ -256,7 +320,10 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                     rows={4}
                     required
                   />
-                ) : (
+                </div>
+              ) : (
+                <div>
+                  <Label htmlFor="content-data" className="text-white">URL</Label>
                   <Input
                     id="content-data"
                     type="url"
@@ -266,10 +333,11 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                     placeholder="https://..."
                     required
                   />
-                )}
-              </div>
+                </div>
+              )}
+
               <div>
-                <Label htmlFor="content-description" className="text-white">Description</Label>
+                <Label htmlFor="content-description" className="text-white">Description (Optional)</Label>
                 <Textarea
                   id="content-description"
                   value={contentForm.description}
@@ -287,8 +355,8 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                   className="bg-slate-700 border-slate-600 text-white"
                 />
               </div>
-              <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600">
-                Create Content
+              <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600" disabled={loading}>
+                {loading ? 'Creating...' : 'Create Content'}
               </Button>
             </form>
           </DialogContent>
@@ -311,7 +379,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="text-xs text-gray-400 capitalize bg-slate-700 px-2 py-1 rounded">
-                      {content.content_type}
+                      {content.content_type.replace('_', ' ')}
                     </span>
                     <Button
                       onClick={() => deleteContent(content.id)}
@@ -324,7 +392,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                   </div>
                 </div>
                 {content.description && (
-                  <CardDescription className="text-gray-400">
+                  <CardDescription className="text-gray-400 mt-1">
                     {content.description}
                   </CardDescription>
                 )}
@@ -341,7 +409,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                       {content.is_active ? "Active" : "Inactive"}
                     </span>
                   </div>
-                  {content.content_type === 'text' && (
+                  {content.content_type === 'text' && content.content_data?.text && (
                     <div className="text-sm">
                       <span className="text-gray-400">Preview: </span>
                       <p className="text-white mt-1 p-2 bg-slate-700 rounded text-xs">
@@ -349,16 +417,22 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                       </p>
                     </div>
                   )}
-                  {content.content_type !== 'text' && (
+                  { (content.content_type === 'video' || 
+                     content.content_type === 'image' || 
+                     content.content_type === 'pdf' || 
+                     content.content_type === 'url' ||
+                     content.content_type === '3d_model') && content.content_data?.url && (
                     <div className="text-sm">
-                      <span className="text-gray-400">URL: </span>
+                      <span className="text-gray-400">
+                        {content.content_type === '3d_model' ? 'Model URL: ' : 'URL: '}
+                      </span>
                       <a 
-                        href={content.content_data?.url} 
+                        href={content.content_data.url} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="text-blue-400 hover:text-blue-300 break-all"
                       >
-                        {content.content_data?.url}
+                        {content.content_data.url}
                       </a>
                     </div>
                   )}
@@ -367,7 +441,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
             </Card>
           ))}
           
-          {contents.length === 0 && (
+          {contents.length === 0 && !loading && (
             <Card className="bg-slate-800 border-slate-700">
               <CardContent className="p-8 text-center">
                 <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />

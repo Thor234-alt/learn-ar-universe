@@ -1,12 +1,12 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { FileText, Video, Image, FileIcon, Link, CheckCircle, Play } from 'lucide-react';
+import { FileText, Video, Image, FileIcon, Link, CheckCircle, Play, Cube, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import ThreeDModelViewer from '@/components/common/ThreeDModelViewer';
 
 type ModuleContent = {
   id: string;
@@ -192,6 +192,7 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
       case 'image': return <Image className="w-4 h-4" />;
       case 'pdf': return <FileIcon className="w-4 h-4" />;
       case 'url': return <Link className="w-4 h-4" />;
+      case '3d_model': return <Cube className="w-4 h-4" />;
       default: return <FileText className="w-4 h-4" />;
     }
   };
@@ -288,9 +289,10 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-6xl h-[80vh] flex overflow-hidden">
+      <div className="bg-white rounded-lg w-full max-w-6xl h-[90vh] md:h-[80vh] flex flex-col md:flex-row overflow-hidden shadow-2xl">
         {/* Content List Sidebar */}
-        <div className="w-1/3 border-r bg-gray-50 p-4 overflow-y-auto">
+        <div className="w-full md:w-1/3 border-b md:border-b-0 md:border-r bg-gray-50 p-4 overflow-y-auto">
+          {/* ... keep existing code (sidebar header, progress bar, content list mapping) */}
           <div className="mb-4">
             <h3 className="font-semibold text-lg mb-2">Module Content</h3>
             <div className="mb-2">
@@ -311,23 +313,25 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
               {contents.map((content) => (
                 <Card 
                   key={content.id} 
-                  className={`cursor-pointer transition-colors ${
-                    selectedContent?.id === content.id ? 'ring-2 ring-blue-500' : ''
+                  className={`cursor-pointer transition-colors hover:shadow-md ${
+                    selectedContent?.id === content.id ? 'ring-2 ring-blue-500 shadow-lg' : 'hover:bg-gray-100'
                   }`}
                   onClick={() => setSelectedContent(content)}
                 >
                   <CardContent className="p-3">
-                    <div className="flex items-center space-x-2">
-                      {getContentIcon(content.content_type)}
-                      <span className="flex-1 text-sm font-medium">{content.title}</span>
+                    <div className="flex items-center space-x-3">
+                      <div className="text-blue-600">
+                        {getContentIcon(content.content_type)}
+                      </div>
+                      <span className="flex-1 text-sm font-medium truncate">{content.title}</span>
                       {isContentCompleted(content.id) ? (
-                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
                       ) : (
-                        <Play className="w-4 h-4 text-gray-400" />
+                        <Play className="w-5 h-5 text-gray-400 flex-shrink-0" />
                       )}
                     </div>
                     {content.description && (
-                      <p className="text-xs text-gray-600 mt-1">{content.description}</p>
+                      <p className="text-xs text-gray-500 mt-1.5 line-clamp-2">{content.description}</p>
                     )}
                   </CardContent>
                 </Card>
@@ -337,36 +341,37 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
         </div>
 
         {/* Content Viewer */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col bg-white">
           {/* Header */}
-          <div className="border-b p-4 flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              {selectedContent && getContentIcon(selectedContent.content_type)}
-              <h2 className="text-xl font-semibold">{selectedContent?.title || 'Module Content'}</h2>
+          <div className="border-b p-4 flex items-center justify-between bg-gray-50 md:bg-white">
+            <div className="flex items-center space-x-2 min-w-0">
+              {selectedContent && <div className="text-gray-700">{getContentIcon(selectedContent.content_type)}</div>}
+              <h2 className="text-xl font-semibold truncate">{selectedContent?.title || 'Module Content'}</h2>
             </div>
             <div className="flex items-center space-x-2">
               {selectedContent && !isContentCompleted(selectedContent.id) && (
                 <Button 
                   onClick={() => markContentComplete(selectedContent.id)}
-                  className="bg-green-600 hover:bg-green-700"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  size="sm"
                 >
                   Mark Complete
                 </Button>
               )}
-              <Button onClick={onClose} variant="outline">
+              <Button onClick={onClose} variant="outline" size="sm">
                 Close
               </Button>
             </div>
           </div>
 
           {/* Content Display */}
-          <div className="flex-1 p-4 overflow-y-auto">
-            {loading ? (
+          <div className="flex-1 p-2 md:p-4 overflow-y-auto relative">
+            {loading && !selectedContent ? (
               <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
               </div>
             ) : selectedContent ? (
-              <div className="h-full">
+              <div className="h-full w-full">
                 {selectedContent.content_type === 'text' && (
                   <div className="prose max-w-none">
                     <div className="whitespace-pre-wrap">
@@ -397,8 +402,19 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
                     />
                   </div>
                 )}
+
+                {selectedContent.content_type === '3d_model' && (
+                  <Suspense fallback={
+                    <div className="flex items-center justify-center h-full">
+                      <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+                      <p className="ml-2">Loading 3D Viewer...</p>
+                    </div>
+                  }>
+                    <ThreeDModelViewer modelUrl={selectedContent.content_data?.url} />
+                  </Suspense>
+                )}
               </div>
-            ) : contents.length === 0 ? (
+            ) : contents.length === 0 && !loading ? (
               <div className="flex items-center justify-center h-full text-gray-500">
                 <div className="text-center">
                   <p className="text-lg mb-2">No content available</p>
