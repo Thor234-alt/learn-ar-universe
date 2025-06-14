@@ -2,6 +2,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BookOpen, CheckCircle, Clock } from 'lucide-react';
 
+/**
+ * Each module's stats, including unique students and per-module aggregation.
+ */
 type ModuleStat = {
   id: string;
   title: string;
@@ -26,7 +29,7 @@ const ModuleStatsCard = ({ moduleStats }: ModuleStatsCardProps) => {
           <span>Module Statistics</span>
         </CardTitle>
         <CardDescription>
-          Overview of module engagement and completion
+          Overview of module engagement and completion.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -57,7 +60,7 @@ const ModuleStatsCard = ({ moduleStats }: ModuleStatsCardProps) => {
             </div>
           </div>
         ))}
-        
+
         {moduleStats.length === 0 && (
           <div className="text-center py-8">
             <BookOpen className="w-12 h-12 text-gray-400 mx-auto mb-4" />

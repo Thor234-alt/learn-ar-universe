@@ -1,3 +1,4 @@
+
 type StudentProgress = {
   id: string;
   student_id: string;
@@ -27,11 +28,15 @@ type StudentProfile = {
   email: string;
 };
 
+/**
+ * Returns all student profiles (not just those with progress).
+ * Appends summary progress info by aggregating all progress rows.
+ */
 export const getUniqueStudents = (
   studentProgress: StudentProgress[],
   studentProfiles: StudentProfile[]
 ) => {
-  // Map student progress by student_id
+  // Map student progress by student_id (group all progress by each student)
   const progressByStudent = new Map<string, StudentProgress[]>();
   studentProgress.forEach(progress => {
     if (!progressByStudent.has(progress.student_id)) {
@@ -40,7 +45,7 @@ export const getUniqueStudents = (
     progressByStudent.get(progress.student_id)!.push(progress);
   });
 
-  // Build the array to include ALL studentProfiles
+  // For every profile (not filtered by progress), summarize their info
   const students = studentProfiles.map(profile => {
     const progressArr = progressByStudent.get(profile.id) || [];
     const totalTopics = progressArr.length;
@@ -51,6 +56,7 @@ export const getUniqueStudents = (
     const completedTopics = progressArr.filter(
       p => p.progress_percentage === 100
     ).length;
+    // Total number of topics assigned in the system:
     const averageProgress =
       totalTopics > 0
         ? Math.round(totalProgress / totalTopics)
@@ -70,9 +76,13 @@ export const getUniqueStudents = (
   return students;
 };
 
+/**
+ * For every module, aggregate unique students and their completion/in progress stats based on distinct student_ids
+ */
 export const getModuleStats = (modules: Module[], studentProgress: StudentProgress[]) => {
+  // Build `moduleStats` map by module.id
   const moduleStats = new Map();
-  
+
   modules.forEach(module => {
     moduleStats.set(module.id, {
       ...module,
@@ -82,17 +92,32 @@ export const getModuleStats = (modules: Module[], studentProgress: StudentProgre
     });
   });
 
+  // For every module, collect a set of unique student_ids and their max progress
+  const moduleStudentProgressMap = new Map<string, Map<string, number>>(); // moduleId => Map<studentId, max_progress_percentage>
   studentProgress.forEach(progress => {
-    if (moduleStats.has(progress.module_id)) {
-      const stats = moduleStats.get(progress.module_id);
-      stats.totalStudents += 1;
-      if (progress.progress_percentage === 100) {
-        stats.completedCount += 1;
-      } else if (progress.progress_percentage > 0) {
-        stats.inProgressCount += 1;
-      }
+    if (!moduleStudentProgressMap.has(progress.module_id)) {
+      moduleStudentProgressMap.set(progress.module_id, new Map());
     }
+    const studentMap = moduleStudentProgressMap.get(progress.module_id)!;
+    // Track max progress per student per module
+    const existing = studentMap.get(progress.student_id) || 0;
+    studentMap.set(progress.student_id, Math.max(existing, progress.progress_percentage || 0));
+  });
+
+  // Now aggregate per-module
+  moduleStats.forEach((stats, moduleId) => {
+    const studentMap = moduleStudentProgressMap.get(moduleId) || new Map();
+    stats.totalStudents = studentMap.size;
+    let completed = 0;
+    let inProgress = 0;
+    studentMap.forEach(progress => {
+      if (progress === 100) completed++;
+      else if (progress > 0) inProgress++;
+    });
+    stats.completedCount = completed;
+    stats.inProgressCount = inProgress;
   });
 
   return Array.from(moduleStats.values());
 };
+

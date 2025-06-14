@@ -137,7 +137,7 @@ export type Database = {
           student_id: string
           time_spent_active_seconds: number | null
           time_spent_minutes: number | null
-          topic_id: string
+          topic_id: string | null
           updated_at: string
         }
         Insert: {
@@ -154,7 +154,7 @@ export type Database = {
           student_id: string
           time_spent_active_seconds?: number | null
           time_spent_minutes?: number | null
-          topic_id: string
+          topic_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -171,7 +171,7 @@ export type Database = {
           student_id?: string
           time_spent_active_seconds?: number | null
           time_spent_minutes?: number | null
-          topic_id?: string
+          topic_id?: string | null
           updated_at?: string
         }
         Relationships: [
