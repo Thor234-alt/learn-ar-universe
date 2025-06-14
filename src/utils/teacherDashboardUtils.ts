@@ -1,4 +1,3 @@
-
 type StudentProgress = {
   id: string;
   student_id: string;
@@ -22,35 +21,53 @@ type Module = {
   is_active: boolean;
 };
 
-export const getUniqueStudents = (studentProgress: StudentProgress[]) => {
-  const uniqueStudents = new Map();
+type StudentProfile = {
+  id: string;
+  full_name: string | null;
+  email: string;
+};
+
+export const getUniqueStudents = (
+  studentProgress: StudentProgress[],
+  studentProfiles: StudentProfile[]
+) => {
+  // Map student progress by student_id
+  const progressByStudent = new Map<string, StudentProgress[]>();
   studentProgress.forEach(progress => {
-    if (!uniqueStudents.has(progress.student_id)) {
-      uniqueStudents.set(progress.student_id, {
-        id: progress.student_id,
-        name: progress.student_name || 'No name',
-        email: progress.student_email || 'No email',
-        totalProgress: 0,
-        completedTopics: 0,
-        totalTopics: 0
-      });
+    if (!progressByStudent.has(progress.student_id)) {
+      progressByStudent.set(progress.student_id, []);
     }
-    
-    const student = uniqueStudents.get(progress.student_id);
-    student.totalTopics += 1;
-    student.totalProgress += progress.progress_percentage;
-    if (progress.progress_percentage === 100) {
-      student.completedTopics += 1;
-    }
+    progressByStudent.get(progress.student_id)!.push(progress);
   });
 
-  // Calculate average progress
-  uniqueStudents.forEach(student => {
-    student.averageProgress = student.totalTopics > 0 ? 
-      Math.round(student.totalProgress / student.totalTopics) : 0;
+  // Build the array to include ALL studentProfiles
+  const students = studentProfiles.map(profile => {
+    const progressArr = progressByStudent.get(profile.id) || [];
+    const totalTopics = progressArr.length;
+    const totalProgress = progressArr.reduce(
+      (acc, p) => acc + (p.progress_percentage || 0),
+      0
+    );
+    const completedTopics = progressArr.filter(
+      p => p.progress_percentage === 100
+    ).length;
+    const averageProgress =
+      totalTopics > 0
+        ? Math.round(totalProgress / totalTopics)
+        : 0;
+
+    return {
+      id: profile.id,
+      name: profile.full_name || 'No name',
+      email: profile.email || 'No email',
+      totalProgress,
+      completedTopics,
+      totalTopics,
+      averageProgress
+    };
   });
 
-  return Array.from(uniqueStudents.values());
+  return students;
 };
 
 export const getModuleStats = (modules: Module[], studentProgress: StudentProgress[]) => {

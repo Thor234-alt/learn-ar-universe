@@ -26,8 +26,15 @@ type Module = {
   is_active: boolean;
 };
 
+type StudentProfile = {
+  id: string;
+  full_name: string | null;
+  email: string;
+};
+
 export const useTeacherData = () => {
   const [studentProgress, setStudentProgress] = useState<StudentProgress[]>([]);
+  const [studentProfiles, setStudentProfiles] = useState<StudentProfile[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -58,16 +65,15 @@ export const useTeacherData = () => {
 
       if (modulesError) throw modulesError;
 
-      // Fetch profiles to get student names
-      const studentIds = progressData?.map(p => p.student_id) || [];
+      // Fetch ALL student profiles (with role = 'student')
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('id, full_name, email')
-        .in('id', studentIds);
+        .eq('role', 'student');
 
       if (profilesError) throw profilesError;
 
-      // Merge all the data together
+      // Merge all the data together for progress rows
       const enrichedProgress = progressData?.map(progress => {
         const topic = topicsData?.find(t => t.id === progress.topic_id);
         const module = modulesData?.find(m => m.id === progress.module_id);
@@ -84,6 +90,7 @@ export const useTeacherData = () => {
 
       setStudentProgress(enrichedProgress);
       setModules(modulesData || []);
+      setStudentProfiles(profilesData || []);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast({
@@ -102,6 +109,7 @@ export const useTeacherData = () => {
 
   return {
     studentProgress,
+    studentProfiles,
     modules,
     loading,
     refetch: fetchData

@@ -1,4 +1,3 @@
-
 import { useAuth } from '@/hooks/useAuth';
 import Navbar from '@/components/Navbar';
 import { useTeacherData } from '@/hooks/useTeacherData';
@@ -15,7 +14,7 @@ import ModuleContentViewer from '@/components/student/ModuleContentViewer';
 
 const TeacherDashboard = () => {
   const { user, profile } = useAuth();
-  const { studentProgress, modules, loading } = useTeacherData();
+  const { studentProgress, studentProfiles, modules, loading } = useTeacherData();
   const [contentViewer, setContentViewer] = useState<{
     isOpen: boolean;
     moduleId: string;
@@ -39,7 +38,8 @@ const TeacherDashboard = () => {
     );
   }
 
-  const uniqueStudents = getUniqueStudents(studentProgress);
+  // Change: pass in both studentProgress and studentProfiles!
+  const uniqueStudents = getUniqueStudents(studentProgress, studentProfiles);
   const moduleStats = getModuleStats(modules, studentProgress);
   const completedTopics = studentProgress.filter(p => p.progress_percentage === 100).length;
 
