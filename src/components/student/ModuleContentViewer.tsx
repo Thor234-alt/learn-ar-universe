@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -36,7 +37,41 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
   const [progress, setProgress] = useState<ContentProgress[]>([]);
   const [selectedContent, setSelectedContent] = useState<ModuleContent | null>(null);
   const [loading, setLoading] = useState(false);
+  const [firstTopicId, setFirstTopicId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  // Get the effective topic ID to use for progress tracking
+  const getEffectiveTopicId = async (): Promise<string | null> => {
+    if (topicId && topicId !== '') {
+      return topicId;
+    }
+
+    // If no topicId provided, try to get the first topic of the module
+    if (!firstTopicId) {
+      try {
+        const { data: topics, error } = await supabase
+          .from('topics')
+          .select('id')
+          .eq('module_id', moduleId)
+          .order('order_index', { ascending: true })
+          .limit(1);
+
+        if (error) {
+          console.error('Error fetching topics:', error);
+          return null;
+        }
+
+        if (topics && topics.length > 0) {
+          setFirstTopicId(topics[0].id);
+          return topics[0].id;
+        }
+      } catch (error) {
+        console.error('Error getting effective topic ID:', error);
+      }
+    }
+
+    return firstTopicId;
+  };
 
   useEffect(() => {
     if (isOpen && moduleId) {
@@ -89,6 +124,7 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
         .not('content_id', 'is', null);
 
       if (error) throw error;
+      console.log('Progress fetched:', data?.length || 0, 'items');
       setProgress(data || []);
     } catch (error) {
       console.error('Error fetching progress:', error);
@@ -99,25 +135,46 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
     if (!user) return;
 
     try {
+      console.log('Marking content as complete:', contentId);
+      
+      // Get the effective topic ID for progress tracking
+      const effectiveTopicId = await getEffectiveTopicId();
+      
+      if (!effectiveTopicId) {
+        toast({
+          title: "Warning",
+          description: "No topic found for progress tracking, but content will be marked as viewed.",
+          variant: "default"
+        });
+        return;
+      }
+
       const { error } = await supabase
         .from('student_progress')
         .upsert({
           student_id: user.id,
           module_id: moduleId,
-          topic_id: topicId || null, // Handle empty topicId
+          topic_id: effectiveTopicId,
           content_id: contentId,
           content_completed_at: new Date().toISOString(),
           progress_percentage: 0 // Will be calculated by trigger
+        }, {
+          onConflict: 'student_id,module_id,topic_id'
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error marking content complete:', error);
+        throw error;
+      }
 
+      console.log('Content marked as complete successfully');
       toast({
         title: "Success",
         description: "Content marked as completed!"
       });
 
-      fetchProgress();
+      // Refresh progress data
+      await fetchProgress();
     } catch (error) {
       console.error('Error marking content complete:', error);
       toast({
