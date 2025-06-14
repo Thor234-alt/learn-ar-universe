@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { FileText, Video, Image, FileIcon, Link, CheckCircle, Play, Cube, Loader2 } from 'lucide-react';
+import { FileText, Video, Image, FileIcon, Link, CheckCircle, Play, Box, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import ThreeDModelViewer from '@/components/common/ThreeDModelViewer';
 
@@ -192,7 +192,7 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
       case 'image': return <Image className="w-4 h-4" />;
       case 'pdf': return <FileIcon className="w-4 h-4" />;
       case 'url': return <Link className="w-4 h-4" />;
-      case '3d_model': return <Cube className="w-4 h-4" />;
+      case '3d_model': return <Box className="w-4 h-4" />;
       default: return <FileText className="w-4 h-4" />;
     }
   };
@@ -344,6 +344,7 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
         <div className="flex-1 flex flex-col bg-white">
           {/* Header */}
           <div className="border-b p-4 flex items-center justify-between bg-gray-50 md:bg-white">
+            {/* ... keep existing code (header content: icon, title, buttons) */}
             <div className="flex items-center space-x-2 min-w-0">
               {selectedContent && <div className="text-gray-700">{getContentIcon(selectedContent.content_type)}</div>}
               <h2 className="text-xl font-semibold truncate">{selectedContent?.title || 'Module Content'}</h2>

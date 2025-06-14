@@ -1,8 +1,8 @@
 
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, useGLTF, Stage, PresentationControls, Environment } from '@react-three/drei';
-import { Loader2 } from 'lucide-react'; // Using Lucide for loader icon
+import { OrbitControls, useGLTF, Stage, PresentationControls, Environment, Html } from '@react-three/drei'; // Added Html
+import { Loader2 } from 'lucide-react';
 
 interface ThreeDModelViewerProps {
   modelUrl: string;
@@ -10,16 +10,13 @@ interface ThreeDModelViewerProps {
 
 function Model({ url }: { url: string }) {
   const { scene } = useGLTF(url);
-  // You might want to scale or position the model appropriately
-  // For now, let's apply a basic scale if needed.
-  // const scale = scene.userData.scale || 1; // Example if scale info is in userData
   return <primitive object={scene} scale={1} />;
 }
 
-// A simple component to show while the model is loading
 const ModelLoader: React.FC = () => (
-  <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', color: 'black', textAlign: 'center' }}>
-    <Loader2 className="w-12 h-12 animate-spin text-blue-600 mb-2" />
+  // Centering is handled by Html component's `center` prop
+  <div style={{ color: 'black', textAlign: 'center' }}>
+    <Loader2 className="w-12 h-12 animate-spin text-blue-600 mb-2 mx-auto" /> {/* Added mx-auto for centering icon */}
     <p>Loading 3D Model...</p>
   </div>
 );
@@ -31,19 +28,19 @@ const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl }) => {
 
   return (
     <div className="w-full h-full relative bg-gray-100 rounded">
-      <Canvas dpr={[1, 2]} camera={{ fov: 45, position: [0, 2, 5] }} style={{ touchAction: 'pan-y' }}> {/* Adjusted touchAction */}
-        <color attach="background" args={['#e0e0e0']} /> {/* Light gray background */}
+      <Canvas dpr={[1, 2]} camera={{ fov: 45, position: [0, 2, 5] }} style={{ touchAction: 'pan-y' }}>
+        <color attach="background" args={['#e0e0e0']} />
         
-        <Suspense fallback={<HtmlAsReactComponent><ModelLoader /></HtmlAsReactComponent>}>
+        <Suspense fallback={<Html center><ModelLoader /></Html>}> {/* Used Html directly */}
           <PresentationControls
             speed={1.5}
             global
-            zoom={0.7} // Adjusted default zoom
-            polar={[-0.2, Math.PI / 3]} // Constrain vertical rotation
-            azimuth={[-Math.PI / 4, Math.PI / 4]} // Constrain horizontal rotation
+            zoom={0.7}
+            polar={[-0.2, Math.PI / 3]}
+            azimuth={[-Math.PI / 4, Math.PI / 4]}
           >
             <Stage environment={null} intensity={0.6} contactShadowOpacity={0.5} shadowBias={-0.0015}>
-              <Environment preset="city" /> {/* Using a preset environment for lighting */}
+              <Environment preset="city" />
               <Model url={modelUrl} />
             </Stage>
           </PresentationControls>
@@ -51,8 +48,8 @@ const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl }) => {
             enablePan={true} 
             enableZoom={true} 
             enableRotate={true}
-            minDistance={1} // Prevent zooming too close
-            maxDistance={50} // Prevent zooming too far
+            minDistance={1}
+            maxDistance={50}
           />
         </Suspense>
       </Canvas>
@@ -60,15 +57,6 @@ const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl }) => {
   );
 };
 
-// Helper to use React components as fallback in Suspense for R3F
-// This is needed because Suspense directly within Canvas expects R3F components
-const HtmlAsReactComponent = ({ children }: { children: React.ReactNode }) => {
-  const { DREI } = require('@react-three/drei') as any; // A bit of a hack to get Html from drei
-  if (!DREI?.Html) { // Fallback if Html cannot be loaded (e.g. test environment)
-     return <>{children}</>;
-  }
-  return <DREI.Html center>{children}</DREI.Html>;
-};
-
+// Removed HtmlAsReactComponent helper
 
 export default ThreeDModelViewer;
