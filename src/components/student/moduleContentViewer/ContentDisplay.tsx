@@ -139,7 +139,7 @@ const ContentDisplay = ({ selectedContent, loading, saveContentProgress }: Conte
       {selectedContent.content_type === 'video' &&
         renderVideoContent(selectedContent, saveContentProgress)}
       {selectedContent.content_type === 'image' && (
-        <div className="flex items-center justify-center h-full">
+        <div className="flex flex-col items-center justify-center h-full">
           <img
             src={selectedContent.content_data?.url}
             alt={selectedContent.title}
@@ -159,6 +159,15 @@ const ContentDisplay = ({ selectedContent, loading, saveContentProgress }: Conte
       )}
       {selectedContent.content_type === '3d_model' &&
         renderThreeDModelContent(selectedContent.content_data, selectedContent.title)}
+      {/* Sub Information Display (for all content types, if present) */}
+      {selectedContent.sub_info && (
+        <div className="mt-4">
+          <h4 className="font-semibold text-gray-700 mb-1">Sub Information:</h4>
+          <p className="whitespace-pre-line text-gray-900 bg-orange-50 p-3 rounded">
+            {selectedContent.sub_info}
+          </p>
+        </div>
+      )}
     </div>
   );
 };
