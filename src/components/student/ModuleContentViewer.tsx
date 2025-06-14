@@ -102,8 +102,8 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
   // --- Save Progress/Analytics to DB ---
   const saveContentProgress = async (isFinal: boolean = false) => {
     if (!user || !selectedContent) return;
-    const effectiveTopicId = await getEffectiveTopicId();
-    if (!effectiveTopicId) return;
+    // Use topicId only if present/non-empty
+    const effectiveTopicId = topicId && topicId.length > 0 ? topicId : null;
     const percent = getCurrentContentProgress();
     const analytics = getCurrentEngagementMetadata();
     const activeSeconds = activeSecondsRef.current;
@@ -119,24 +119,27 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
     lastProgressRef.current = percent;
     lastEngagementRef.current = analytics;
 
-    await supabase.from('student_progress').upsert({
+    const upsertObj: any = {
       student_id: user.id,
       module_id: moduleId,
-      topic_id: effectiveTopicId,
       content_id: selectedContent.id,
       content_progress_percentage: percent,
       engagement_metadata: analytics,
       time_spent_active_seconds: activeSeconds,
       last_activity_at: new Date().toISOString(),
+      ...(effectiveTopicId ? { topic_id: effectiveTopicId } : {}),
       ...(percent >= 100
         ? {
             content_completed_at: new Date().toISOString(),
           }
         : {})
-    }, {
-      onConflict: 'student_id, content_id',
+    };
+
+    await supabase.from('student_progress').upsert(upsertObj, {
+      onConflict: effectiveTopicId
+        ? 'student_id, module_id, topic_id, content_id'
+        : 'student_id, module_id, content_id',
     });
-    // Do not toast here for autosave, to avoid spamming
     fetchProgress();
   };
 
@@ -261,15 +264,15 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
     if (!user) return;
 
     try {
+      // Query progress by student_id/module_id/content_id, topic_id optional
       const { data, error } = await supabase
         .from('student_progress')
-        .select('content_id, content_completed_at, time_spent_minutes')
+        .select('content_id, content_completed_at, time_spent_minutes, topic_id')
         .eq('student_id', user.id)
         .eq('module_id', moduleId)
         .not('content_id', 'is', null);
 
       if (error) throw error;
-      console.log('Progress fetched:', data?.length || 0, 'items');
       setProgress(data || []);
     } catch (error) {
       console.error('Error fetching progress:', error);
@@ -280,47 +283,36 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
     if (!user) return;
 
     try {
-      console.log('Marking content as complete:', contentId);
-      
-      // Get the effective topic ID for progress tracking
-      const effectiveTopicId = await getEffectiveTopicId();
-      
-      if (!effectiveTopicId) {
-        toast({
-          title: "Warning",
-          description: "No topic found for progress tracking, but content will be marked as viewed.",
-          variant: "default"
-        });
-        return;
-      }
+      // Use topicId only if present/non-empty
+      const effectiveTopicId = topicId && topicId.length > 0 ? topicId : null;
+
+      const upsertObj: any = {
+        student_id: user.id,
+        module_id: moduleId,
+        content_id: contentId,
+        content_completed_at: new Date().toISOString(),
+        ...(effectiveTopicId ? { topic_id: effectiveTopicId } : {}),
+      };
 
       const { error } = await supabase
         .from('student_progress')
-        .upsert({
-          student_id: user.id,
-          module_id: moduleId,
-          topic_id: effectiveTopicId,
-          content_id: contentId,
-          content_completed_at: new Date().toISOString(),
-        }, {
-          onConflict: 'student_id, content_id',
+        .upsert(upsertObj, {
+          onConflict: effectiveTopicId
+            ? 'student_id, module_id, topic_id, content_id'
+            : 'student_id, module_id, content_id',
         });
 
       if (error) {
-        console.error('Error marking content complete:', error);
         throw error;
       }
 
-      console.log('Content marked as complete successfully');
       toast({
         title: "Success",
         description: "Content marked as completed!"
       });
 
-      // Refresh progress data
       await fetchProgress();
     } catch (error) {
-      console.error('Error marking content complete:', error);
       toast({
         title: "Error",
         description: `Failed to update progress: ${error.message}`,
