@@ -108,6 +108,36 @@ export const useStudentDashboard = () => {
     }
   }, [user]);
 
+  // Set up real-time listener for progress updates
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('Setting up real-time listener for progress updates');
+    
+    const channel = supabase
+      .channel('progress-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'student_progress',
+          filter: `student_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Progress update received:', payload);
+          // Refetch data when progress changes
+          fetchData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up real-time listener');
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
+
   const getModuleTopics = (moduleId: string) => {
     return topics.filter(topic => topic.module_id === moduleId);
   };

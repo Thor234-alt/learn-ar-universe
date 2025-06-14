@@ -1,8 +1,11 @@
 
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BookOpen, Play } from 'lucide-react';
 import TopicCard from './TopicCard';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 type Module = {
   id: string;
@@ -35,10 +38,57 @@ interface ModuleCardProps {
 }
 
 const ModuleCard = ({ module, topics, getTopicProgress, onStartTopic, onViewModuleContent }: ModuleCardProps) => {
-  const completedTopics = topics.filter(topic => {
-    const topicProgress = getTopicProgress(topic.id);
-    return topicProgress?.progress_percentage === 100;
-  });
+  const { user } = useAuth();
+  const [moduleContentStats, setModuleContentStats] = useState({ completed: 0, total: 0 });
+
+  useEffect(() => {
+    fetchModuleContentStats();
+  }, [module.id, user]);
+
+  const fetchModuleContentStats = async () => {
+    if (!user) return;
+
+    try {
+      // Get total content count for this module
+      const { data: contentData, error: contentError } = await supabase
+        .from('module_content')
+        .select('id')
+        .eq('module_id', module.id)
+        .eq('is_active', true);
+
+      if (contentError) {
+        console.error('Error fetching content count:', contentError);
+        return;
+      }
+
+      const totalContent = contentData?.length || 0;
+
+      // Get completed content count for this module
+      const { data: progressData, error: progressError } = await supabase
+        .from('student_progress')
+        .select('content_id')
+        .eq('student_id', user.id)
+        .eq('module_id', module.id)
+        .not('content_completed_at', 'is', null)
+        .not('content_id', 'is', null);
+
+      if (progressError) {
+        console.error('Error fetching progress count:', progressError);
+        return;
+      }
+
+      const completedContent = progressData?.length || 0;
+
+      setModuleContentStats({
+        completed: completedContent,
+        total: totalContent
+      });
+
+      console.log(`Module ${module.title} stats:`, { completed: completedContent, total: totalContent });
+    } catch (error) {
+      console.error('Error fetching module content stats:', error);
+    }
+  };
 
   const handleViewContent = () => {
     if (onViewModuleContent) {
@@ -61,7 +111,7 @@ const ModuleCard = ({ module, topics, getTopicProgress, onStartTopic, onViewModu
           </div>
           <div className="text-right">
             <div className="text-sm text-gray-600">
-              {completedTopics.length} / {topics.length} completed
+              {moduleContentStats.completed} / {moduleContentStats.total} content completed
             </div>
             <div className="text-xs text-gray-500 capitalize">
               {module.difficulty_level}
