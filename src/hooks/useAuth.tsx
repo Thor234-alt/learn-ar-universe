@@ -1,26 +1,15 @@
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { Database } from '@/integrations/supabase/types';
-
-type Profile = Database['public']['Tables']['profiles']['Row'];
-
-interface AuthContextType {
-  user: User | null;
-  profile: Profile | null;
-  session: Session | null;
-  loading: boolean;
-  signUp: (email: string, password: string, fullName: string, role: 'admin' | 'student' | 'client' | 'teacher') => Promise<{ error: any }>;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
-  signInWithGoogle: (role: 'admin' | 'student' | 'client' | 'teacher') => Promise<{ error: any }>;
-  signOut: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+import { AuthContext } from '@/contexts/AuthContext';
+import { useProfile } from '@/hooks/useProfile';
+import { authService } from '@/services/authService';
+import { redirectBasedOnRole } from '@/utils/authRedirect';
+import { UserRole } from '@/types/auth';
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
+  const context = React.useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
@@ -29,64 +18,10 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const fetchProfile = async (userId: string) => {
-    try {
-      console.log('Fetching profile for user:', userId);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
-      
-      if (error) {
-        console.error('Error fetching profile:', error);
-        return null;
-      }
-      
-      if (data) {
-        console.log('Profile found:', data);
-        setProfile(data);
-        return data;
-      }
-      
-      console.log('No profile found for user:', userId);
-      return null;
-    } catch (error) {
-      console.error('Error in fetchProfile:', error);
-      return null;
-    }
-  };
-
-  const redirectBasedOnRole = (role: string) => {
-    const currentPath = window.location.pathname;
-    
-    // Don't redirect if already on a dashboard or auth page
-    if (currentPath.includes('dashboard') || currentPath.includes('auth')) {
-      return;
-    }
-
-    console.log('Redirecting based on role:', role);
-    
-    switch (role) {
-      case 'student':
-        window.location.href = '/student-dashboard';
-        break;
-      case 'admin':
-      case 'client':
-        window.location.href = '/admin-dashboard';
-        break;
-      case 'teacher':
-        window.location.href = '/teacher-dashboard';
-        break;
-      default:
-        console.log('Unknown role, staying on current page');
-        break;
-    }
-  };
+  
+  const { profile, fetchProfile, clearProfile } = useProfile();
 
   useEffect(() => {
     let mounted = true;
@@ -110,7 +45,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
         }, 1000);
       } else {
-        setProfile(null);
+        clearProfile();
       }
       
       setLoading(false);
@@ -138,64 +73,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
-
-  const signUp = async (email: string, password: string, fullName: string, role: 'admin' | 'student' | 'client' | 'teacher') => {
-    console.log('Signing up user:', email, 'with role:', role);
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName,
-          role: role,
-          email: email
-        }
-      }
-    });
-    
-    if (data.user && !error) {
-      console.log('User signed up successfully:', data.user.id);
-    }
-    
-    return { error };
-  };
-
-  const signIn = async (email: string, password: string) => {
-    console.log('Signing in user:', email);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
-    
-    return { error };
-  };
-
-  const signInWithGoogle = async (role: 'admin' | 'student' | 'client' | 'teacher') => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: redirectUrl,
-        queryParams: {
-          role: role
-        }
-      }
-    });
-    
-    return { error };
-  };
+  }, [fetchProfile, clearProfile]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    await authService.signOut();
     setUser(null);
-    setProfile(null);
+    clearProfile();
     setSession(null);
-    window.location.href = '/';
   };
 
   const value = {
@@ -203,9 +87,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     profile,
     session,
     loading,
-    signUp,
-    signIn,
-    signInWithGoogle,
+    signUp: authService.signUp,
+    signIn: authService.signIn,
+    signInWithGoogle: authService.signInWithGoogle,
     signOut
   };
 
