@@ -118,46 +118,55 @@ export const useStudentDashboard = () => {
 
   const startTopic = async (topicId: string, moduleId: string) => {
     if (!user) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to start a topic",
-        variant: "destructive"
-      });
-      return;
+      console.warn('No user found when starting topic');
+      return true; // Allow content access even without auth
     }
 
     try {
       console.log('Starting topic:', topicId, 'for user:', user.id);
       
-      const { error } = await supabase
-        .from('student_progress')
-        .upsert({
-          student_id: user.id,
-          topic_id: topicId,
-          module_id: moduleId,
-          progress_percentage: 0
-        });
+      // Check if progress already exists
+      const existingProgress = progress.find(p => p.topic_id === topicId);
+      
+      if (!existingProgress) {
+        const { error } = await supabase
+          .from('student_progress')
+          .upsert({
+            student_id: user.id,
+            topic_id: topicId,
+            module_id: moduleId,
+            progress_percentage: 0
+          }, {
+            onConflict: 'student_id,topic_id'
+          });
 
-      if (error) {
-        console.error('Error starting topic:', error);
-        throw error;
+        if (error) {
+          console.error('Error starting topic:', error);
+          // Don't throw error, just log it - allow content access
+          toast({
+            title: "Warning",
+            description: "Progress tracking may not work properly, but you can still access the content.",
+            variant: "default"
+          });
+        } else {
+          toast({
+            title: "Success",
+            description: "Topic started successfully!"
+          });
+          // Refetch data to update progress
+          fetchData();
+        }
       }
 
-      toast({
-        title: "Success",
-        description: "Topic started successfully!"
-      });
-
-      fetchData();
       return true;
     } catch (error) {
       console.error('Error starting topic:', error);
       toast({
-        title: "Error",
-        description: `Failed to start topic: ${error.message || 'Unknown error'}`,
-        variant: "destructive"
+        title: "Warning",
+        description: "Progress tracking may not work properly, but you can still access the content.",
+        variant: "default"
       });
-      return false;
+      return true; // Still allow content access
     }
   };
 

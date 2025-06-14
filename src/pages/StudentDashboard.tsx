@@ -31,13 +31,21 @@ const StudentDashboard = () => {
   });
 
   const handleStartTopic = async (topicId: string, moduleId: string) => {
-    const success = await startTopic(topicId, moduleId);
-    if (success) {
-      setContentViewer({
-        isOpen: true,
-        moduleId: moduleId,
-        topicId: topicId
-      });
+    console.log('Starting topic:', topicId, 'for module:', moduleId);
+    
+    // Always open the content viewer, regardless of startTopic success
+    // This allows students to access content even if progress tracking fails
+    setContentViewer({
+      isOpen: true,
+      moduleId: moduleId,
+      topicId: topicId
+    });
+
+    // Try to update progress, but don't block content access if it fails
+    try {
+      await startTopic(topicId, moduleId);
+    } catch (error) {
+      console.error('Failed to update progress, but allowing content access:', error);
     }
   };
 
@@ -47,6 +55,7 @@ const StudentDashboard = () => {
       moduleId: '',
       topicId: ''
     });
+    // Refetch data to get updated progress
     refetchData();
   };
 
@@ -110,12 +119,14 @@ const StudentDashboard = () => {
       </div>
 
       {/* Content Viewer Modal */}
-      <ModuleContentViewer
-        moduleId={contentViewer.moduleId}
-        topicId={contentViewer.topicId}
-        isOpen={contentViewer.isOpen}
-        onClose={closeContentViewer}
-      />
+      {contentViewer.isOpen && (
+        <ModuleContentViewer
+          moduleId={contentViewer.moduleId}
+          topicId={contentViewer.topicId}
+          isOpen={contentViewer.isOpen}
+          onClose={closeContentViewer}
+        />
+      )}
     </div>
   );
 };
