@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Edit, Trash2, FileText, Video, Image, FileIcon, Link, Box } from 'lucide-react';
+import { Plus, Edit, Trash2, FileText, Video, Image, FileIcon, Link, Box, Loader } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -473,7 +473,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                   )}
                   {assetUploading && (
                     <div className="text-orange-400 text-xs mt-1 flex items-center">
-                      <Loader2 className="w-4 h-4 animate-spin mr-1" /> Uploading...
+                      <Loader className="w-4 h-4 animate-spin mr-1" /> Uploading...
                     </div>
                   )}
                   {assetUploadedUrl && (
