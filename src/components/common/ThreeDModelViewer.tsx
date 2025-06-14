@@ -38,7 +38,7 @@ const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl }) => {
             polar={[-0.2, Math.PI / 3]}
             azimuth={[-Math.PI / 4, Math.PI / 4]}
           >
-            <Stage environment={null} intensity={0.6} shadowBias={-0.0015}>
+            <Stage environment={null} intensity={0.6}>
               <Environment preset="city" />
               <Model url={modelUrl} />
             </Stage>
