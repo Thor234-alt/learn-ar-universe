@@ -7,14 +7,15 @@ interface ThreeDModelViewerProps {
   modelUrl?: string;
   modelUrls?: string[];
   selectedRootUrl?: string;
+  modelScale?: number; // new optional prop
 }
 
 // Enhanced Model function to support preloading of all URLs (for bin support)
-function Model({ url }: { url: string }) {
+function Model({ url, scale }: { url: string; scale: number }) {
   // Patch the loader to "inject" known URLs for dependency resolution if required
   const { scene } = useGLTF(url, true);
   // Future: Could use onProgress/error for granularity
-  return <primitive object={scene} scale={1} />;
+  return <primitive object={scene} scale={scale} />;
 }
 
 const ModelLoader: React.FC = () => (
@@ -49,13 +50,16 @@ class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasErr
 }
 
 // Support flexible multi-root mode based on provided files
-const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl }) => {
+const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl, modelScale }) => {
   // Only need the root file now, which will ensure dependent files are found if URLs are correct
   if (!modelUrl) {
     return <div className="flex items-center justify-center h-full text-gray-500">No 3D model file provided.</div>;
   }
 
-  console.log('[ThreeDModelViewer] rootUrl:', modelUrl);
+  // Default scale value is 0.15 (can override via prop)
+  const scale = typeof modelScale === "number" ? modelScale : 0.15;
+
+  console.log('[ThreeDModelViewer] rootUrl:', modelUrl, 'scale:', scale);
 
   return (
     <ErrorBoundary>
@@ -72,7 +76,7 @@ const ThreeDModelViewer: React.FC<ThreeDModelViewerProps> = ({ modelUrl }) => {
             >
               <Stage environment={null} intensity={0.6}>
                 <Environment preset="city" />
-                <Model url={modelUrl} />
+                <Model url={modelUrl} scale={scale} />
               </Stage>
             </PresentationControls>
             <OrbitControls 
