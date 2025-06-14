@@ -83,8 +83,8 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      // Allow multiple selection
-      setFileToUpload(Array.from(e.target.files)); // keeps .glb, .gltf, .bin
+      // Allow selection of any relevant asset type
+      setFileToUpload(Array.from(e.target.files));
     } else {
       setFileToUpload([]);
     }
@@ -99,7 +99,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
       let finalContentData: any;
       if (contentForm.content_type === '3d_model') {
         if (!fileToUpload || fileToUpload.length === 0) {
-          toast({ title: "Error", description: "Please select at least one 3D model file (.glb, .gltf, .bin).", variant: "destructive" });
+          toast({ title: "Error", description: "Please select all relevant 3D model and asset files.", variant: "destructive" });
           setLoading(false);
           return;
         }
@@ -107,6 +107,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
         const folderId = `${user?.id || 'shared_models'}/${Date.now()}_${Math.floor(Math.random()*1e6)}`;
         let urls: string[] = [];
         let rootModelUrl = "";
+        let rootModelFilename = "";
         for (const modelFile of fileToUpload) {
           const safeFileName = modelFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
           const filePath = `${folderId}/${safeFileName}`;
@@ -124,17 +125,23 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
           const { data: publicUrlData } = supabase.storage.from('3d_models').getPublicUrl(uploadData.path);
           if (publicUrlData && publicUrlData.publicUrl) {
             urls.push(publicUrlData.publicUrl);
-            if (safeFileName.endsWith('.gltf') || safeFileName.endsWith('.glb')) {
+            // Identify .gltf or .glb as root model
+            if (
+              safeFileName.toLowerCase().endsWith('.gltf') ||
+              safeFileName.toLowerCase().endsWith('.glb')
+            ) {
               rootModelUrl = publicUrlData.publicUrl;
+              rootModelFilename = safeFileName;
             }
           }
         }
         if (!rootModelUrl) {
-          toast({ title: "Error", description: "Please include a .gltf or .glb file.", variant: "destructive" });
+          toast({ title: "Error", description: "Please include at least one .gltf or .glb file.", variant: "destructive" });
           setLoading(false);
           return;
         }
-        finalContentData = { rootModelUrl, urls }; // always array!
+        // Save all URLs as array, and also the folder prefix for reconstructing relative paths if needed
+        finalContentData = { rootModelUrl, urls, folderPrefix: folderId, rootModelFilename };
       } else {
         // Process content based on type for non-file uploads
         switch (contentForm.content_type) {
@@ -309,14 +316,16 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
 
               {contentForm.content_type === '3d_model' ? (
                 <div>
-                  <Label htmlFor="content-file" className="text-white">3D Model File(s) (.glb, .gltf, .bin)</Label>
+                  <Label htmlFor="content-file" className="text-white">
+                    3D Model Assets (.glb, .gltf, .bin, .jpg, .jpeg, .png, textures, etc)
+                  </Label>
                   <Input
                     id="content-file"
                     type="file"
                     multiple
                     onChange={handleFileChange}
                     className="bg-slate-700 border-slate-600 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
-                    accept=".glb,.gltf,.bin"
+                    accept=".glb,.gltf,.bin,.jpg,.jpeg,.png,.webp,.svg,.bmp,.tga,.dds,.ktx,.ktx2"
                     required
                   />
                   {fileToUpload && fileToUpload.length > 0 && (
@@ -324,7 +333,9 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                       Selected: {fileToUpload.map(f => f.name).join(', ')}
                     </p>
                   )}
-                  <p className="text-xs text-gray-400 mt-1">Upload your main .gltf/.glb and any associated .bin buffer files.</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Upload your main .gltf/.glb and any required .bin, texture, or asset files. All will be stored in a single folder to preserve relative paths.
+                  </p>
                 </div>
               ) : contentForm.content_type === 'text' ? (
                 <div>
