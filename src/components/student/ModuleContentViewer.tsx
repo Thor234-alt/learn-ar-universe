@@ -285,6 +285,59 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
     );
   };
 
+  const renderThreeDModelContent = (contentData: any, title: string) => {
+    const urls: string[] =
+      Array.isArray(contentData?.urls) && contentData.urls.length > 0
+        ? contentData.urls
+        : contentData && contentData.url ? [contentData.url] : [];
+    const [selectedUrlIdx, setSelectedUrlIdx] = useState(0); // declare hook inside function
+    // If no files, show a message
+    if (!urls.length) {
+      return (
+        <div className="flex items-center justify-center h-full text-gray-500">
+          <p>No 3D model files available for this content.</p>
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-col h-full w-full">
+        {/* 3D Model Gallery Selector if multiple */}
+        {urls.length > 1 && (
+          <div className="flex flex-row space-x-2 mb-2">
+            {urls.map((u, i) => (
+              <button
+                key={i}
+                onClick={() => setSelectedUrlIdx(i)}
+                className={`px-3 py-1 rounded text-xs font-medium ${
+                  i === selectedUrlIdx
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-200 text-gray-700 hover:bg-blue-100"
+                }`}
+              >
+                Model {i + 1}
+              </button>
+            ))}
+          </div>
+        )}
+        {/* 3D Model Viewer */}
+        <div className="flex-1 min-h-[300px] h-[48vw] max-h-[70vh] w-full rounded-lg bg-gray-100">
+          <Suspense
+            fallback={
+              <div className="flex flex-col items-center justify-center h-full">
+                <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
+                <p className="mt-2">Loading 3D Viewer...</p>
+              </div>
+            }
+          >
+            <ThreeDModelViewer
+              modelUrl={urls[selectedUrlIdx]}
+            />
+          </Suspense>
+        </div>
+      </div>
+    );
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -404,16 +457,9 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
                   </div>
                 )}
 
-                {selectedContent.content_type === '3d_model' && (
-                  <Suspense fallback={
-                    <div className="flex items-center justify-center h-full">
-                      <Loader2 className="w-10 h-10 animate-spin text-blue-600" />
-                      <p className="ml-2">Loading 3D Viewer...</p>
-                    </div>
-                  }>
-                    <ThreeDModelViewer modelUrl={selectedContent.content_data?.url} />
-                  </Suspense>
-                )}
+                {selectedContent.content_type === '3d_model' &&
+                  renderThreeDModelContent(selectedContent.content_data, selectedContent.title)
+                }
               </div>
             ) : contents.length === 0 && !loading ? (
               <div className="flex items-center justify-center h-full text-gray-500">

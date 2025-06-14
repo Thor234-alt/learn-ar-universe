@@ -48,7 +48,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
     description: '',
     order_index: 0
   });
-  const [fileToUpload, setFileToUpload] = useState<File | null>(null);
+  const [fileToUpload, setFileToUpload] = useState<File[]>([]);
 
   useEffect(() => {
     if (selectedModuleId) {
@@ -82,10 +82,11 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFileToUpload(e.target.files[0]);
+    if (e.target.files) {
+      // Allow multiple selection
+      setFileToUpload(Array.from(e.target.files));
     } else {
-      setFileToUpload(null);
+      setFileToUpload([]);
     }
   };
 
@@ -96,34 +97,39 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
     setLoading(true);
     try {
       let finalContentData: any;
-      
       if (contentForm.content_type === '3d_model') {
-        if (!fileToUpload) {
-          toast({ title: "Error", description: "Please select a 3D model file (.glb or .gltf).", variant: "destructive" });
+        if (!fileToUpload || fileToUpload.length === 0) {
+          toast({ title: "Error", description: "Please select 3D model file(s) (.glb or .gltf).", variant: "destructive" });
           setLoading(false);
           return;
         }
-        // Sanitize filename (optional, but good practice)
-        const safeFileName = fileToUpload.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const filePath = `${user?.id || 'shared_models'}/${Date.now()}_${safeFileName}`;
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('3d_models')
-          .upload(filePath, fileToUpload, {
-            cacheControl: '3600',
-            upsert: false, // Important: set to false to avoid accidental overwrites. Change if needed.
-          });
-
-        if (uploadError) {
-          console.error('Error uploading 3D model:', uploadError);
-          toast({ title: "Error", description: `Failed to upload 3D model: ${uploadError.message}`, variant: "destructive" });
+        let urls: string[] = [];
+        for (const modelFile of fileToUpload) {
+          // Sanitize filename
+          const safeFileName = modelFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+          const filePath = `${user?.id || 'shared_models'}/${Date.now()}_${safeFileName}`;
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('3d_models')
+            .upload(filePath, modelFile, {
+              cacheControl: '3600',
+              upsert: false,
+            });
+          if (uploadError) {
+            console.error('Error uploading 3D model:', uploadError);
+            toast({ title: "Error", description: `Failed to upload ${safeFileName}: ${uploadError.message}`, variant: "destructive" });
+            continue;
+          }
+          const { data: publicUrlData } = supabase.storage.from('3d_models').getPublicUrl(uploadData.path);
+          if (publicUrlData && publicUrlData.publicUrl) {
+            urls.push(publicUrlData.publicUrl);
+          }
+        }
+        if (urls.length === 0) {
+          toast({ title: "Error", description: "All uploads failed.", variant: "destructive" });
           setLoading(false);
           return;
         }
-        
-        const { data: publicUrlData } = supabase.storage.from('3d_models').getPublicUrl(uploadData.path);
-        finalContentData = { url: publicUrlData.publicUrl };
-
+        finalContentData = { urls };
       } else {
         // Process content based on type for non-file uploads
         switch (contentForm.content_type) {
@@ -168,7 +174,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
         description: '',
         order_index: 0
       });
-      setFileToUpload(null);
+      setFileToUpload([]);
       setIsCreateContentOpen(false);
       fetchModuleContent();
     } catch (error) {
@@ -246,7 +252,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
           setIsCreateContentOpen(isOpen);
           if (!isOpen) {
             setContentForm({ title: '', content_type: 'text', content_data: '', description: '', order_index: 0 });
-            setFileToUpload(null);
+            setFileToUpload([]);
           }
         }}>
           <DialogTrigger asChild>
@@ -279,7 +285,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
                   value={contentForm.content_type} 
                   onValueChange={(value) => {
                     setContentForm({...contentForm, content_type: value, content_data: ''});
-                    setFileToUpload(null);
+                    setFileToUpload([]);
                   }}
                 >
                   <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
@@ -298,16 +304,21 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
 
               {contentForm.content_type === '3d_model' ? (
                 <div>
-                  <Label htmlFor="content-file" className="text-white">3D Model File</Label>
+                  <Label htmlFor="content-file" className="text-white">3D Model File(s)</Label>
                   <Input
                     id="content-file"
                     type="file"
+                    multiple
                     onChange={handleFileChange}
                     className="bg-slate-700 border-slate-600 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
                     accept=".glb,.gltf"
                     required
                   />
-                  {fileToUpload && <p className="text-xs text-gray-400 mt-1">Selected: {fileToUpload.name}</p>}
+                  {fileToUpload && fileToUpload.length > 0 && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Selected: {fileToUpload.map(f => f.name).join(', ')}
+                    </p>
+                  )}
                 </div>
               ) : contentForm.content_type === 'text' ? (
                 <div>
