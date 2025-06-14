@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,7 +12,6 @@ import StudentDashboard from "./pages/StudentDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import NotFound from "./pages/NotFound";
-import ThemeToggle from "@/components/ThemeToggle";
 
 const queryClient = new QueryClient();
 
@@ -22,10 +22,6 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          {/* Add the dark mode toggle floating top right */}
-          <div className="fixed top-4 right-4 z-50">
-            <ThemeToggle />
-          </div>
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/student-auth" element={<StudentAuth />} />
