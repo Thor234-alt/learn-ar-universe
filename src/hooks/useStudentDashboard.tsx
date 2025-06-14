@@ -20,7 +20,7 @@ type Topic = {
   order_index: number;
 };
 
-// Use the generated type for Progress for better accuracy
+// Use Database['public']['Tables']['student_progress']['Row'] as Progress type
 type Progress = Database['public']['Tables']['student_progress']['Row'];
 
 export const useStudentDashboard = () => {

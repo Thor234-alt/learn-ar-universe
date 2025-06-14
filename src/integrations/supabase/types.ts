@@ -127,11 +127,15 @@ export type Database = {
           completed_at: string | null
           content_completed_at: string | null
           content_id: string | null
+          content_progress_percentage: number | null
           created_at: string
+          engagement_metadata: Json | null
           id: string
+          last_activity_at: string | null
           module_id: string
           progress_percentage: number | null
           student_id: string
+          time_spent_active_seconds: number | null
           time_spent_minutes: number | null
           topic_id: string
           updated_at: string
@@ -140,11 +144,15 @@ export type Database = {
           completed_at?: string | null
           content_completed_at?: string | null
           content_id?: string | null
+          content_progress_percentage?: number | null
           created_at?: string
+          engagement_metadata?: Json | null
           id?: string
+          last_activity_at?: string | null
           module_id: string
           progress_percentage?: number | null
           student_id: string
+          time_spent_active_seconds?: number | null
           time_spent_minutes?: number | null
           topic_id: string
           updated_at?: string
@@ -153,11 +161,15 @@ export type Database = {
           completed_at?: string | null
           content_completed_at?: string | null
           content_id?: string | null
+          content_progress_percentage?: number | null
           created_at?: string
+          engagement_metadata?: Json | null
           id?: string
+          last_activity_at?: string | null
           module_id?: string
           progress_percentage?: number | null
           student_id?: string
+          time_spent_active_seconds?: number | null
           time_spent_minutes?: number | null
           topic_id?: string
           updated_at?: string

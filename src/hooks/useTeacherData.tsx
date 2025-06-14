@@ -9,7 +9,12 @@ type StudentProgress = {
   module_id: string;
   topic_id: string;
   progress_percentage: number;
+  content_id: string | null;
+  content_progress_percentage: number | null;
+  time_spent_active_seconds: number | null;
+  engagement_metadata: any;
   completed_at: string | null;
+  content_completed_at: string | null;
   created_at: string;
   updated_at: string;
   topic_title?: string;

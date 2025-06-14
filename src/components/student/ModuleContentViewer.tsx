@@ -1,4 +1,4 @@
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,6 +40,147 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
   const [firstTopicId, setFirstTopicId] = useState<string | null>(null);
   const [selectedModelIdx, setSelectedModelIdx] = useState(0);
   const { toast } = useToast();
+
+  // --- New: time tracking and progress ---
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const activityStartRef = useRef<number | null>(null); // timestamp in ms
+  const activeSecondsRef = useRef<number>(0); // cummulative active seconds
+  const lastProgressRef = useRef<number>(0);
+  const lastEngagementRef = useRef<any>(null);
+
+  // Calculate content progress (demo: text percent scrolled, video percent watched)
+  function getCurrentContentProgress(): number {
+    // Add modes for different content types as you see fit
+    if (!selectedContent) return 0;
+    if (selectedContent.content_type === 'text') {
+      const textPanel = document.getElementById('content-text-panel');
+      if (textPanel) {
+        const scrolled = textPanel.scrollTop;
+        const maxScroll = textPanel.scrollHeight - textPanel.clientHeight;
+        if (maxScroll > 0) return Math.min(100, Math.round((scrolled / maxScroll) * 100));
+      }
+    }
+    if (selectedContent.content_type === 'video') {
+      const video: any = document.getElementById('content-video-tag');
+      if (video && video.currentTime && video.duration) {
+        return Math.round((video.currentTime / video.duration) * 100);
+      }
+    }
+    // Fallback: not supported, or complete if present
+    return isContentCompleted(selectedContent.id) ? 100 : 0;
+  }
+  // Calculate engagement metadata (scroll pos, video pos, browser info, etc)
+  function getCurrentEngagementMetadata(): any {
+    if (!selectedContent) return {};
+    if (selectedContent.content_type === 'text') {
+      const textPanel = document.getElementById('content-text-panel');
+      if (textPanel) {
+        return {
+          scrollTop: textPanel.scrollTop,
+          scrollHeight: textPanel.scrollHeight,
+          lastViewedAt: new Date().toISOString(),
+        };
+      }
+    }
+    if (selectedContent.content_type === 'video') {
+      const video: any = document.getElementById('content-video-tag');
+      if (video) {
+        return {
+          currentTime: video.currentTime || 0,
+          duration: video.duration || 0,
+          paused: video.paused,
+          lastViewedAt: new Date().toISOString(),
+        };
+      }
+    }
+    return {};
+  }
+
+  // --- Save Progress/Analytics to DB ---
+  const saveContentProgress = async (isFinal: boolean = false) => {
+    if (!user || !selectedContent) return;
+    const effectiveTopicId = await getEffectiveTopicId();
+    if (!effectiveTopicId) return;
+    const percent = getCurrentContentProgress();
+    const analytics = getCurrentEngagementMetadata();
+    const activeSeconds = activeSecondsRef.current;
+
+    // Only write if percent or analytics meaningfully changed (unless final)
+    if (
+      !isFinal &&
+      percent === lastProgressRef.current &&
+      JSON.stringify(analytics) === JSON.stringify(lastEngagementRef.current)
+    ) {
+      return; // no update
+    }
+    lastProgressRef.current = percent;
+    lastEngagementRef.current = analytics;
+
+    await supabase.from('student_progress').upsert({
+      student_id: user.id,
+      module_id: moduleId,
+      topic_id: effectiveTopicId,
+      content_id: selectedContent.id,
+      content_progress_percentage: percent,
+      engagement_metadata: analytics,
+      time_spent_active_seconds: activeSeconds,
+      last_activity_at: new Date().toISOString(),
+      ...(percent >= 100
+        ? {
+            content_completed_at: new Date().toISOString(),
+          }
+        : {})
+    }, {
+      onConflict: 'student_id, content_id',
+    });
+    // Do not toast here for autosave, to avoid spamming
+    fetchProgress();
+  };
+
+  // --- Timing: Start/stop the progress timer ---
+  function startTracking() {
+    activityStartRef.current = Date.now();
+    timerRef.current = setInterval(() => {
+      // add active time
+      if (activityStartRef.current) {
+        activeSecondsRef.current += 5;
+      }
+      saveContentProgress(false);
+    }, 5000); // every 5s
+  }
+  function stopTracking(saveFinal: boolean = true) {
+    // Add last interval
+    if (activityStartRef.current) {
+      activeSecondsRef.current += Math.round((Date.now() - activityStartRef.current) / 1000);
+      activityStartRef.current = null;
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (saveFinal) saveContentProgress(true);
+  }
+
+  // On content change, stop tracking old and start new
+  useEffect(() => {
+    stopTracking(false);
+    activeSecondsRef.current = 0;
+    lastProgressRef.current = 0;
+    lastEngagementRef.current = null;
+    if (isOpen && selectedContent) {
+      startTracking();
+    }
+    return () => stopTracking(true);
+    // eslint-disable-next-line
+  }, [selectedContent, isOpen]);
+
+  // On modal close, ensure progress is saved
+  useEffect(() => {
+    if (!isOpen) {
+      stopTracking(true);
+    }
+    // eslint-disable-next-line
+  }, [isOpen]);
 
   // Get the effective topic ID to use for progress tracking
   const getEffectiveTopicId = async (): Promise<string | null> => {
@@ -408,14 +549,24 @@ const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleConte
             ) : selectedContent ? (
               <div className="h-full w-full">
                 {selectedContent.content_type === 'text' && (
-                  <div className="prose max-w-none">
+                  <div
+                    className="prose max-w-none"
+                    id="content-text-panel"
+                    style={{ height: "100%", overflow: "auto" }}
+                    onScroll={() => saveContentProgress(false)}
+                  >
                     <div className="whitespace-pre-wrap">
                       {selectedContent.content_data?.text}
                     </div>
                   </div>
                 )}
                 
-                {selectedContent.content_type === 'video' && renderVideoContent(selectedContent.content_data)}
+                {selectedContent.content_type === 'video' &&
+                  renderVideoContent({
+                    ...selectedContent.content_data,
+                    id: "content-video-tag",
+                    onTimeUpdate: () => saveContentProgress(false),
+                  })}
                 
                 {selectedContent.content_type === 'image' && (
                   <div className="flex items-center justify-center h-full">
