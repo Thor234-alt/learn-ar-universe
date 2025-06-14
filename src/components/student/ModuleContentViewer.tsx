@@ -1,0 +1,276 @@
+
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { FileText, Video, Image, FileIcon, Link, CheckCircle, Play } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+type ModuleContent = {
+  id: string;
+  title: string;
+  content_type: string;
+  content_data: any;
+  description: string;
+  order_index: number;
+  is_active: boolean;
+};
+
+type ContentProgress = {
+  content_id: string;
+  content_completed_at: string | null;
+  time_spent_minutes: number;
+};
+
+type ModuleContentViewerProps = {
+  moduleId: string;
+  topicId: string;
+  isOpen: boolean;
+  onClose: () => void;
+};
+
+const ModuleContentViewer = ({ moduleId, topicId, isOpen, onClose }: ModuleContentViewerProps) => {
+  const { user } = useAuth();
+  const [contents, setContents] = useState<ModuleContent[]>([]);
+  const [progress, setProgress] = useState<ContentProgress[]>([]);
+  const [selectedContent, setSelectedContent] = useState<ModuleContent | null>(null);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (isOpen && moduleId) {
+      fetchModuleContent();
+      fetchProgress();
+    }
+  }, [isOpen, moduleId]);
+
+  const fetchModuleContent = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('module_content')
+        .select('*')
+        .eq('module_id', moduleId)
+        .eq('is_active', true)
+        .order('order_index', { ascending: true });
+
+      if (error) throw error;
+      setContents(data || []);
+      
+      if (data && data.length > 0 && !selectedContent) {
+        setSelectedContent(data[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching content:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load module content",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchProgress = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('student_progress')
+        .select('content_id, content_completed_at, time_spent_minutes')
+        .eq('student_id', user.id)
+        .eq('module_id', moduleId)
+        .not('content_id', 'is', null);
+
+      if (error) throw error;
+      setProgress(data || []);
+    } catch (error) {
+      console.error('Error fetching progress:', error);
+    }
+  };
+
+  const markContentComplete = async (contentId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('student_progress')
+        .upsert({
+          student_id: user.id,
+          module_id: moduleId,
+          topic_id: topicId,
+          content_id: contentId,
+          content_completed_at: new Date().toISOString(),
+          progress_percentage: 0 // Will be calculated by trigger
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Content marked as completed!"
+      });
+
+      fetchProgress();
+    } catch (error) {
+      console.error('Error marking content complete:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update progress",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const getContentIcon = (type: string) => {
+    switch (type) {
+      case 'text': return <FileText className="w-4 h-4" />;
+      case 'video': return <Video className="w-4 h-4" />;
+      case 'image': return <Image className="w-4 h-4" />;
+      case 'pdf': return <FileIcon className="w-4 h-4" />;
+      case 'url': return <Link className="w-4 h-4" />;
+      default: return <FileText className="w-4 h-4" />;
+    }
+  };
+
+  const isContentCompleted = (contentId: string) => {
+    return progress.some(p => p.content_id === contentId && p.content_completed_at);
+  };
+
+  const completedCount = contents.filter(content => isContentCompleted(content.id)).length;
+  const progressPercentage = contents.length > 0 ? Math.round((completedCount / contents.length) * 100) : 0;
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg w-full max-w-6xl h-[80vh] flex overflow-hidden">
+        {/* Content List Sidebar */}
+        <div className="w-1/3 border-r bg-gray-50 p-4 overflow-y-auto">
+          <div className="mb-4">
+            <h3 className="font-semibold text-lg mb-2">Module Content</h3>
+            <div className="mb-2">
+              <div className="flex justify-between text-sm text-gray-600 mb-1">
+                <span>Progress</span>
+                <span>{completedCount}/{contents.length}</span>
+              </div>
+              <Progress value={progressPercentage} className="h-2" />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {contents.map((content) => (
+              <Card 
+                key={content.id} 
+                className={`cursor-pointer transition-colors ${
+                  selectedContent?.id === content.id ? 'ring-2 ring-blue-500' : ''
+                }`}
+                onClick={() => setSelectedContent(content)}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-center space-x-2">
+                    {getContentIcon(content.content_type)}
+                    <span className="flex-1 text-sm font-medium">{content.title}</span>
+                    {isContentCompleted(content.id) ? (
+                      <CheckCircle className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Play className="w-4 h-4 text-gray-400" />
+                    )}
+                  </div>
+                  {content.description && (
+                    <p className="text-xs text-gray-600 mt-1">{content.description}</p>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Content Viewer */}
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <div className="border-b p-4 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              {selectedContent && getContentIcon(selectedContent.content_type)}
+              <h2 className="text-xl font-semibold">{selectedContent?.title}</h2>
+            </div>
+            <div className="flex items-center space-x-2">
+              {selectedContent && !isContentCompleted(selectedContent.id) && (
+                <Button 
+                  onClick={() => markContentComplete(selectedContent.id)}
+                  className="bg-green-600 hover:bg-green-700"
+                >
+                  Mark Complete
+                </Button>
+              )}
+              <Button onClick={onClose} variant="outline">
+                Close
+              </Button>
+            </div>
+          </div>
+
+          {/* Content Display */}
+          <div className="flex-1 p-4 overflow-y-auto">
+            {loading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : selectedContent ? (
+              <div className="h-full">
+                {selectedContent.content_type === 'text' && (
+                  <div className="prose max-w-none">
+                    <div className="whitespace-pre-wrap">
+                      {selectedContent.content_data?.text}
+                    </div>
+                  </div>
+                )}
+                
+                {selectedContent.content_type === 'video' && (
+                  <div className="h-full">
+                    <iframe
+                      src={selectedContent.content_data?.url}
+                      className="w-full h-full rounded"
+                      frameBorder="0"
+                      allowFullScreen
+                      title={selectedContent.title}
+                    />
+                  </div>
+                )}
+                
+                {selectedContent.content_type === 'image' && (
+                  <div className="flex items-center justify-center h-full">
+                    <img
+                      src={selectedContent.content_data?.url}
+                      alt={selectedContent.title}
+                      className="max-w-full max-h-full object-contain rounded"
+                    />
+                  </div>
+                )}
+                
+                {(selectedContent.content_type === 'pdf' || selectedContent.content_type === 'url') && (
+                  <div className="h-full">
+                    <iframe
+                      src={selectedContent.content_data?.url}
+                      className="w-full h-full rounded"
+                      frameBorder="0"
+                      title={selectedContent.title}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-500">
+                Select content to view
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ModuleContentViewer;

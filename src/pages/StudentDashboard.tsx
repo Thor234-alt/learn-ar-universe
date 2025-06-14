@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { BookOpen, Play, CheckCircle, Clock, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
+import ModuleContentViewer from '@/components/student/ModuleContentViewer';
 
 type Module = {
   id: string;
@@ -36,6 +37,15 @@ const StudentDashboard = () => {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [progress, setProgress] = useState<Progress[]>([]);
   const [loading, setLoading] = useState(true);
+  const [contentViewer, setContentViewer] = useState<{
+    isOpen: boolean;
+    moduleId: string;
+    topicId: string;
+  }>({
+    isOpen: false,
+    moduleId: '',
+    topicId: ''
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -151,6 +161,13 @@ const StudentDashboard = () => {
         throw error;
       }
 
+      // Open content viewer
+      setContentViewer({
+        isOpen: true,
+        moduleId: moduleId,
+        topicId: topicId
+      });
+
       toast({
         title: "Success",
         description: "Topic started successfully!"
@@ -165,6 +182,16 @@ const StudentDashboard = () => {
         variant: "destructive"
       });
     }
+  };
+
+  const closeContentViewer = () => {
+    setContentViewer({
+      isOpen: false,
+      moduleId: '',
+      topicId: ''
+    });
+    // Refresh data to update progress
+    fetchData();
   };
 
   // Show loading spinner while auth is loading
@@ -323,6 +350,14 @@ const StudentDashboard = () => {
           </Card>
         )}
       </div>
+
+      {/* Content Viewer Modal */}
+      <ModuleContentViewer
+        moduleId={contentViewer.moduleId}
+        topicId={contentViewer.topicId}
+        isOpen={contentViewer.isOpen}
+        onClose={closeContentViewer}
+      />
     </div>
   );
 };

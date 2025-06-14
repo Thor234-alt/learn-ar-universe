@@ -9,6 +9,56 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      module_content: {
+        Row: {
+          content_data: Json
+          content_type: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          module_id: string
+          order_index: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content_data: Json
+          content_type: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          module_id: string
+          order_index?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content_data?: Json
+          content_type?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          module_id?: string
+          order_index?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_content_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modules: {
         Row: {
           created_at: string
@@ -75,35 +125,51 @@ export type Database = {
       student_progress: {
         Row: {
           completed_at: string | null
+          content_completed_at: string | null
+          content_id: string | null
           created_at: string
           id: string
           module_id: string
           progress_percentage: number | null
           student_id: string
+          time_spent_minutes: number | null
           topic_id: string
           updated_at: string
         }
         Insert: {
           completed_at?: string | null
+          content_completed_at?: string | null
+          content_id?: string | null
           created_at?: string
           id?: string
           module_id: string
           progress_percentage?: number | null
           student_id: string
+          time_spent_minutes?: number | null
           topic_id: string
           updated_at?: string
         }
         Update: {
           completed_at?: string | null
+          content_completed_at?: string | null
+          content_id?: string | null
           created_at?: string
           id?: string
           module_id?: string
           progress_percentage?: number | null
           student_id?: string
+          time_spent_minutes?: number | null
           topic_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "student_progress_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "module_content"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "student_progress_module_id_fkey"
             columns: ["module_id"]

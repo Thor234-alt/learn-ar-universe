@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,9 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, BookOpen, Users, Trash2 } from 'lucide-react';
+import { Plus, BookOpen, Users, Trash2, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Navbar from '@/components/Navbar';
+import ContentManagement from '@/components/admin/ContentManagement';
 
 type Module = {
   id: string;
@@ -38,7 +38,8 @@ const AdminDashboard = () => {
   const [modules, setModules] = useState<Module[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'modules' | 'teachers'>('modules');
+  const [activeTab, setActiveTab] = useState<'modules' | 'teachers' | 'content'>('modules');
+  const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
   const [isCreateModuleOpen, setIsCreateModuleOpen] = useState(false);
   const [isCreateTeacherOpen, setIsCreateTeacherOpen] = useState(false);
   const { toast } = useToast();
@@ -310,6 +311,14 @@ const AdminDashboard = () => {
             Modules
           </Button>
           <Button
+            onClick={() => setActiveTab('content')}
+            variant={activeTab === 'content' ? 'default' : 'outline'}
+            className={activeTab === 'content' ? 'bg-orange-500 hover:bg-orange-600' : 'border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white'}
+          >
+            <FileText className="w-4 h-4 mr-2" />
+            Content
+          </Button>
+          <Button
             onClick={() => setActiveTab('teachers')}
             variant={activeTab === 'teachers' ? 'default' : 'outline'}
             className={activeTab === 'teachers' ? 'bg-orange-500 hover:bg-orange-600' : 'border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white'}
@@ -318,6 +327,39 @@ const AdminDashboard = () => {
             Teachers
           </Button>
         </div>
+
+        {activeTab === 'content' && (
+          <div className="space-y-6">
+            {/* Module Selector for Content Management */}
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white">Select Module</CardTitle>
+                <CardDescription className="text-gray-400">
+                  Choose a module to manage its content
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Select value={selectedModuleId || ''} onValueChange={setSelectedModuleId}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                    <SelectValue placeholder="Select a module" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-700 border-slate-600">
+                    {modules.map((module) => (
+                      <SelectItem key={module.id} value={module.id}>
+                        {module.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+
+            <ContentManagement 
+              selectedModuleId={selectedModuleId} 
+              modules={modules}
+            />
+          </div>
+        )}
 
         {activeTab === 'modules' && (
           <div className="space-y-6">
@@ -398,6 +440,18 @@ const AdminDashboard = () => {
                         </CardDescription>
                       </div>
                       <div className="flex items-center space-x-2">
+                        <Button
+                          onClick={() => {
+                            setSelectedModuleId(module.id);
+                            setActiveTab('content');
+                          }}
+                          variant="outline"
+                          size="sm"
+                          className="border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white"
+                        >
+                          <FileText className="w-4 h-4 mr-1" />
+                          Content
+                        </Button>
                         <Button
                           onClick={() => toggleModuleStatus(module.id, module.is_active)}
                           variant="outline"
