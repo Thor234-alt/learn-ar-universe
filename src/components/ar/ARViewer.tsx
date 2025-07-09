@@ -4,7 +4,6 @@ import { OrbitControls, useGLTF, PresentationControls } from '@react-three/drei'
 import { Button } from '@/components/ui/button';
 import { RotateCcw, Move3D, ZoomIn, ZoomOut, Info, X, Camera, Eye } from 'lucide-react';
 import ARCamera from './ARCamera';
-import WebXRCamera from './WebXRCamera';
 
 interface ARViewerProps {
   modelUrl: string;
@@ -33,8 +32,6 @@ const ARViewer: React.FC<ARViewerProps> = ({
   const [isARMode, setIsARMode] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
-  const [useAdvancedAR, setUseAdvancedAR] = useState(true);
-  const [trackingMode, setTrackingMode] = useState<'marker' | 'world'>('world');
   const controlsRef = useRef<any>();
 
   useEffect(() => {
@@ -75,18 +72,6 @@ const ARViewer: React.FC<ARViewerProps> = ({
     setCameraError(error);
     setIsARMode(false);
     setCameraReady(false);
-    setIsLoading(false);
-  };
-
-  const handleTrackingReady = () => {
-    setCameraReady(true);
-    setIsLoading(false);
-  };
-
-  const handleTrackingError = (error: string) => {
-    console.error('AR Tracking Error:', error);
-    setCameraError(error);
-    setUseAdvancedAR(false);
     setIsLoading(false);
   };
 
@@ -138,24 +123,12 @@ const ARViewer: React.FC<ARViewerProps> = ({
 
       {/* AR Camera View */}
       {isARMode && !cameraError && (
-        <>
-          {useAdvancedAR ? (
-            <WebXRCamera
-              modelUrl={modelUrl}
-              modelScale={0.15}
-              onTrackingReady={handleTrackingReady}
-              onTrackingError={handleTrackingError}
-              allowInteraction={true}
-            />
-          ) : (
-            <ARCamera
-              modelUrl={modelUrl}
-              modelScale={0.15}
-              onCameraReady={handleCameraReady}
-              onCameraError={handleCameraError}
-            />
-          )}
-        </>
+        <ARCamera
+          modelUrl={modelUrl}
+          modelScale={0.15}
+          onCameraReady={handleCameraReady}
+          onCameraError={handleCameraError}
+        />
       )}
 
       {/* Regular 3D Canvas View */}
@@ -255,19 +228,6 @@ const ARViewer: React.FC<ARViewerProps> = ({
               {isARMode ? <Eye className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
             </Button>
 
-            {/* Tracking Mode Toggle (when in AR) */}
-            {isARMode && useAdvancedAR && (
-              <Button
-                onClick={() => setTrackingMode(trackingMode === 'world' ? 'marker' : 'world')}
-                variant="ghost"
-                size="sm"
-                className="text-white hover:bg-white/20 rounded-full"
-                title={`Switch to ${trackingMode === 'world' ? 'Marker' : 'World'} Tracking`}
-              >
-                <Move3D className="w-5 h-5" />
-              </Button>
-            )}
-
             {!isARMode && (
               <>
                 <Button
@@ -321,19 +281,9 @@ const ARViewer: React.FC<ARViewerProps> = ({
           <div className="bg-black/50 backdrop-blur-sm rounded-lg p-3 text-xs text-gray-300">
             {isARMode ? (
               <>
-                {useAdvancedAR ? (
-                  <>
-                    <p>🎯 AR Tracking: {trackingMode === 'world' ? 'World' : 'Marker'}</p>
-                    <p>👆 Tap to select & interact</p>
-                    <p>🤏 Pinch/drag to move & scale</p>
-                  </>
-                ) : (
-                  <>
-                    <p>📹 AR Camera Active</p>
-                    <p>🔄 Drag to rotate model</p>
-                    <p>👁️ Look around to explore</p>
-                  </>
-                )}
+                <p>📹 AR Camera Active</p>
+                <p>🔄 Drag to rotate model</p>
+                <p>👁️ Look around to explore</p>
               </>
             ) : (
               <>

@@ -19,13 +19,28 @@ function ARModel({ url, scale = 0.1, position = [0, 0, -1] }: {
   const { scene } = useGLTF(url, true);
   const modelRef = useRef<THREE.Group>();
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
+  const [modelPosition, setModelPosition] = useState<[number, number, number]>(position);
+  const [modelScale, setModelScale] = useState(scale);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSelected, setIsSelected] = useState(false);
   const [lastPointer, setLastPointer] = useState({ x: 0, y: 0 });
+  const [gestureState, setGestureState] = useState({ 
+    initialDistance: 0, 
+    initialScale: scale,
+    isScaling: false 
+  });
 
-  // Handle touch/mouse interactions
+  // Handle touch/mouse interactions with enhanced gestures
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
+      if (event.pointerType === 'touch' && event.detail === 2) {
+        // Double tap - reset position
+        resetModelPosition();
+        return;
+      }
+      
       setIsDragging(true);
+      setIsSelected(true);
       setLastPointer({ x: event.clientX, y: event.clientY });
     };
 
@@ -35,10 +50,21 @@ function ARModel({ url, scale = 0.1, position = [0, 0, -1] }: {
       const deltaX = event.clientX - lastPointer.x;
       const deltaY = event.clientY - lastPointer.y;
       
-      setRotation(prev => ({
-        x: prev.x + deltaY * 0.01,
-        y: prev.y + deltaX * 0.01
-      }));
+      // Check if this is a multi-touch gesture
+      if (event.pressure > 0.5) {
+        // Movement gesture - translate model
+        setModelPosition(prev => [
+          prev[0] + deltaX * 0.001,
+          prev[1] - deltaY * 0.001,
+          prev[2]
+        ]);
+      } else {
+        // Rotation gesture
+        setRotation(prev => ({
+          x: prev.x + deltaY * 0.01,
+          y: prev.y + deltaX * 0.01
+        }));
+      }
       
       setLastPointer({ x: event.clientX, y: event.clientY });
     };
@@ -47,28 +73,95 @@ function ARModel({ url, scale = 0.1, position = [0, 0, -1] }: {
       setIsDragging(false);
     };
 
+    // Touch events for pinch to scale
+    const handleTouchStart = (event: TouchEvent) => {
+      if (event.touches.length === 2) {
+        const touch1 = event.touches[0];
+        const touch2 = event.touches[1];
+        const distance = Math.sqrt(
+          Math.pow(touch2.clientX - touch1.clientX, 2) + 
+          Math.pow(touch2.clientY - touch1.clientY, 2)
+        );
+        setGestureState({
+          initialDistance: distance,
+          initialScale: modelScale,
+          isScaling: true
+        });
+      }
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (event.touches.length === 2 && gestureState.isScaling) {
+        event.preventDefault();
+        const touch1 = event.touches[0];
+        const touch2 = event.touches[1];
+        const distance = Math.sqrt(
+          Math.pow(touch2.clientX - touch1.clientX, 2) + 
+          Math.pow(touch2.clientY - touch1.clientY, 2)
+        );
+        
+        const scaleFactor = distance / gestureState.initialDistance;
+        const newScale = Math.max(0.05, Math.min(2, gestureState.initialScale * scaleFactor));
+        setModelScale(newScale);
+      }
+    };
+
+    const handleTouchEnd = (event: TouchEvent) => {
+      if (event.touches.length < 2) {
+        setGestureState(prev => ({ ...prev, isScaling: false }));
+      }
+    };
+
     window.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
 
     return () => {
       window.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, [isDragging, lastPointer]);
+  }, [isDragging, lastPointer, gestureState, modelScale]);
 
-  // Apply rotation to model
+  // Reset model to original position
+  const resetModelPosition = () => {
+    setModelPosition([0, 0, -1]);
+    setRotation({ x: 0, y: 0 });
+    setModelScale(scale);
+    setIsSelected(false);
+  };
+
+  // Apply rotation and position to model with world tracking
   useFrame(() => {
     if (modelRef.current) {
       modelRef.current.rotation.x = rotation.x;
       modelRef.current.rotation.y = rotation.y;
+      modelRef.current.position.set(...modelPosition);
+      modelRef.current.scale.setScalar(modelScale);
     }
   });
 
   return (
-    <group ref={modelRef} position={position} scale={scale}>
+    <group ref={modelRef} position={modelPosition} scale={modelScale}>
       <primitive object={scene} />
+      {/* Selection indicator */}
+      {isSelected && (
+        <mesh position={[0, 0, 0]}>
+          <sphereGeometry args={[0.02, 8, 8]} />
+          <meshBasicMaterial color="#00ff00" transparent opacity={0.6} />
+        </mesh>
+      )}
+      {/* Anchor point indicator */}
+      <mesh position={[0, -0.05, 0]}>
+        <sphereGeometry args={[0.01, 8, 8]} />
+        <meshBasicMaterial color="#ff0000" transparent opacity={0.8} />
+      </mesh>
     </group>
   );
 }
@@ -223,6 +316,14 @@ const ARCamera: React.FC<ARCameraProps> = ({
             scale={modelScale}
             position={[0, 0, -0.5]}
           />
+
+          {/* Reset Button Overlay */}
+          <mesh position={[0.3, -0.3, -0.5]} onClick={() => {
+            // Reset functionality can be added here
+          }}>
+            <sphereGeometry args={[0.03, 8, 8]} />
+            <meshBasicMaterial color="#0066ff" transparent opacity={0.8} />
+          </mesh>
         </Canvas>
       )}
     </div>
