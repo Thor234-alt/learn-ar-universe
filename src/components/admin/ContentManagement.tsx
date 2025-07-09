@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import ContentList from "./ContentList";
 import CreateContentDialog from "./CreateContentDialog";
 import EditSubInfoDialog from "./EditSubInfoDialog";
+import QRCodeGenerator from "../ar/QRCodeGenerator";
 
 type Module = {
   id: string;
@@ -29,7 +30,10 @@ type ModuleContent = {
   order_index: number;
   is_active: boolean;
   created_at: string;
-  sub_info?: string | null; // <-- Add sub_info
+  sub_info?: string | null;
+  qr_code_url?: string | null;
+  public_access?: boolean;
+  access_count?: number;
 };
 
 type ContentManagementProps = {
@@ -365,6 +369,7 @@ const ContentManagement = ({ selectedModuleId, modules }: ContentManagementProps
           setEditingContentId(contentId);
           setSubInfoValue(currentSubInfo || "");
         }}
+        refetchContent={fetchModuleContent}
       />
       {/* Sub info editing dialog */}
       <EditSubInfoDialog

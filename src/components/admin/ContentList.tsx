@@ -12,8 +12,8 @@ type ContentListProps = {
   selectedModule: Module | undefined;
   deleteContent: (contentId: string) => void;
   setIsCreateContentOpen: (open: boolean) => void;
-  // New prop: Sub info editing
   onEditSubInfo?: (id: string, subInfo: string | null | undefined) => void;
+  refetchContent?: () => void;
 };
 
 const ContentList: React.FC<ContentListProps> = ({
@@ -22,7 +22,8 @@ const ContentList: React.FC<ContentListProps> = ({
   selectedModule,
   deleteContent,
   setIsCreateContentOpen,
-  onEditSubInfo
+  onEditSubInfo,
+  refetchContent
 }) => {
   if (loading) {
     return (
@@ -44,6 +45,7 @@ const ContentList: React.FC<ContentListProps> = ({
           content={content}
           deleteContent={deleteContent}
           onEditSubInfo={onEditSubInfo}
+          refetchContent={refetchContent}
         />
       ))}
       {contents.length === 0 && !loading && (

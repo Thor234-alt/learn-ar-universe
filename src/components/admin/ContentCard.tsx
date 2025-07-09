@@ -9,12 +9,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Trash2, FileText, Video, Image, FileIcon, Link, Box, Edit3 } from "lucide-react";
 import { ModuleContent } from "./ContentManagement";
+import QRCodeGenerator from "../ar/QRCodeGenerator";
 
 type ContentCardProps = {
   content: ModuleContent;
   deleteContent: (id: string) => void;
-  // Props to handle sub info editing
   onEditSubInfo?: (id: string, subInfo: string | null | undefined) => void;
+  refetchContent?: () => void;
 };
 
 const getContentIcon = (type: string) => {
@@ -39,7 +40,8 @@ const getContentIcon = (type: string) => {
 const ContentCard: React.FC<ContentCardProps> = ({
   content,
   deleteContent,
-  onEditSubInfo
+  onEditSubInfo,
+  refetchContent
 }) => (
   <Card className="bg-slate-800 border-slate-700">
     <CardHeader className="pb-3">
@@ -125,6 +127,19 @@ const ContentCard: React.FC<ContentCardProps> = ({
           <span className="text-gray-400">Sub Information: </span>
           <span className="text-white whitespace-pre-line">{content.sub_info || <span className="text-gray-500 italic">No sub info</span>}</span>
         </div>
+        
+        {/* QR Code Section for 3D Models */}
+        {content.content_type === "3d_model" && (
+          <div className="mt-4">
+            <QRCodeGenerator
+              contentId={content.id}
+              title={content.title}
+              currentPublicAccess={content.public_access || false}
+              currentQRUrl={content.qr_code_url || undefined}
+              onUpdate={refetchContent}
+            />
+          </div>
+        )}
       </div>
     </CardContent>
   </Card>
