@@ -10,7 +10,7 @@ interface ARCameraProps {
   onCameraError?: (error: string) => void;
 }
 
-// AR 3D Model Component
+// AR 3D Model Component with Touch Controls
 function ARModel({ url, scale = 0.1, position = [0, 0, -1] }: { 
   url: string; 
   scale?: number; 
@@ -18,11 +18,51 @@ function ARModel({ url, scale = 0.1, position = [0, 0, -1] }: {
 }) {
   const { scene } = useGLTF(url, true);
   const modelRef = useRef<THREE.Group>();
-  
-  // Animate the model slightly for better AR effect
-  useFrame((state) => {
+  const [rotation, setRotation] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [lastPointer, setLastPointer] = useState({ x: 0, y: 0 });
+
+  // Handle touch/mouse interactions
+  useEffect(() => {
+    const handlePointerDown = (event: PointerEvent) => {
+      setIsDragging(true);
+      setLastPointer({ x: event.clientX, y: event.clientY });
+    };
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!isDragging) return;
+      
+      const deltaX = event.clientX - lastPointer.x;
+      const deltaY = event.clientY - lastPointer.y;
+      
+      setRotation(prev => ({
+        x: prev.x + deltaY * 0.01,
+        y: prev.y + deltaX * 0.01
+      }));
+      
+      setLastPointer({ x: event.clientX, y: event.clientY });
+    };
+
+    const handlePointerUp = () => {
+      setIsDragging(false);
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [isDragging, lastPointer]);
+
+  // Apply rotation to model
+  useFrame(() => {
     if (modelRef.current) {
-      modelRef.current.rotation.y += 0.005;
+      modelRef.current.rotation.x = rotation.x;
+      modelRef.current.rotation.y = rotation.y;
     }
   });
 
