@@ -10,7 +10,7 @@ interface ARCameraProps {
   onCameraError?: (error: string) => void;
 }
 
-// AR 3D Model Component with Touch Controls
+// AR 3D Model Component with Enhanced Touch Controls
 function ARModel({ url, scale = 0.1, position = [0, 0, -1] }: { 
   url: string; 
   scale?: number; 
@@ -21,113 +21,194 @@ function ARModel({ url, scale = 0.1, position = [0, 0, -1] }: {
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
   const [modelPosition, setModelPosition] = useState<[number, number, number]>(position);
   const [modelScale, setModelScale] = useState(scale);
-  const [isDragging, setIsDragging] = useState(false);
   const [isSelected, setIsSelected] = useState(false);
-  const [lastPointer, setLastPointer] = useState({ x: 0, y: 0 });
-  const [gestureState, setGestureState] = useState({ 
-    initialDistance: 0, 
+  
+  // Enhanced gesture state tracking
+  const [gestureState, setGestureState] = useState({
+    mode: 'none' as 'none' | 'rotate' | 'translate' | 'scale',
+    initialDistance: 0,
     initialScale: scale,
-    isScaling: false 
+    initialPosition: { x: 0, y: 0 },
+    lastTouchPositions: [] as Array<{ x: number; y: number }>,
+    touchCount: 0
   });
 
-  // Handle touch/mouse interactions with enhanced gestures
+  // Improved touch handling with better gesture detection
   useEffect(() => {
-    const handlePointerDown = (event: PointerEvent) => {
-      if (event.pointerType === 'touch' && event.detail === 2) {
-        // Double tap - reset position
-        resetModelPosition();
-        return;
-      }
-      
-      setIsDragging(true);
-      setIsSelected(true);
-      setLastPointer({ x: event.clientX, y: event.clientY });
-    };
-
-    const handlePointerMove = (event: PointerEvent) => {
-      if (!isDragging) return;
-      
-      const deltaX = event.clientX - lastPointer.x;
-      const deltaY = event.clientY - lastPointer.y;
-      
-      // Check if this is a multi-touch gesture
-      if (event.pressure > 0.5) {
-        // Movement gesture - translate model
-        setModelPosition(prev => [
-          prev[0] + deltaX * 0.001,
-          prev[1] - deltaY * 0.001,
-          prev[2]
-        ]);
-      } else {
-        // Rotation gesture
-        setRotation(prev => ({
-          x: prev.x + deltaY * 0.01,
-          y: prev.y + deltaX * 0.01
-        }));
-      }
-      
-      setLastPointer({ x: event.clientX, y: event.clientY });
-    };
-
-    const handlePointerUp = () => {
-      setIsDragging(false);
-    };
-
-    // Touch events for pinch to scale
     const handleTouchStart = (event: TouchEvent) => {
-      if (event.touches.length === 2) {
-        const touch1 = event.touches[0];
-        const touch2 = event.touches[1];
-        const distance = Math.sqrt(
-          Math.pow(touch2.clientX - touch1.clientX, 2) + 
-          Math.pow(touch2.clientY - touch1.clientY, 2)
-        );
-        setGestureState({
-          initialDistance: distance,
-          initialScale: modelScale,
-          isScaling: true
-        });
-      }
-    };
+      event.preventDefault();
+      const touches = Array.from(event.touches);
+      const touchCount = touches.length;
+      
+      setGestureState(prev => ({
+        ...prev,
+        touchCount,
+        lastTouchPositions: touches.map(t => ({ x: t.clientX, y: t.clientY }))
+      }));
 
-    const handleTouchMove = (event: TouchEvent) => {
-      if (event.touches.length === 2 && gestureState.isScaling) {
-        event.preventDefault();
-        const touch1 = event.touches[0];
-        const touch2 = event.touches[1];
+      if (touchCount === 1) {
+        // Single touch - prepare for rotation or translation
+        setIsSelected(true);
+        setGestureState(prev => ({
+          ...prev,
+          mode: 'rotate',
+          initialPosition: { x: touches[0].clientX, y: touches[0].clientY }
+        }));
+      } else if (touchCount === 2) {
+        // Two finger pinch - scale mode
+        const touch1 = touches[0];
+        const touch2 = touches[1];
         const distance = Math.sqrt(
           Math.pow(touch2.clientX - touch1.clientX, 2) + 
           Math.pow(touch2.clientY - touch1.clientY, 2)
         );
         
-        const scaleFactor = distance / gestureState.initialDistance;
-        const newScale = Math.max(0.05, Math.min(2, gestureState.initialScale * scaleFactor));
-        setModelScale(newScale);
+        setGestureState(prev => ({
+          ...prev,
+          mode: 'scale',
+          initialDistance: distance,
+          initialScale: modelScale
+        }));
+      }
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      event.preventDefault();
+      const touches = Array.from(event.touches);
+      
+      if (gestureState.mode === 'rotate' && touches.length === 1) {
+        // Single finger rotation
+        const deltaX = touches[0].clientX - gestureState.initialPosition.x;
+        const deltaY = touches[0].clientY - gestureState.initialPosition.y;
+        
+        setRotation(prev => ({
+          x: Math.max(-Math.PI, Math.min(Math.PI, prev.x + deltaY * 0.01)),
+          y: prev.y + deltaX * 0.01
+        }));
+        
+        setGestureState(prev => ({
+          ...prev,
+          initialPosition: { x: touches[0].clientX, y: touches[0].clientY }
+        }));
+      } else if (gestureState.mode === 'scale' && touches.length === 2) {
+        // Two finger pinch-to-scale
+        const touch1 = touches[0];
+        const touch2 = touches[1];
+        const currentDistance = Math.sqrt(
+          Math.pow(touch2.clientX - touch1.clientX, 2) + 
+          Math.pow(touch2.clientY - touch1.clientY, 2)
+        );
+        
+        if (gestureState.initialDistance > 0) {
+          const scaleFactor = currentDistance / gestureState.initialDistance;
+          const newScale = Math.max(0.02, Math.min(3, gestureState.initialScale * scaleFactor));
+          setModelScale(newScale);
+        }
       }
     };
 
     const handleTouchEnd = (event: TouchEvent) => {
-      if (event.touches.length < 2) {
-        setGestureState(prev => ({ ...prev, isScaling: false }));
+      const touchCount = event.touches.length;
+      
+      if (touchCount === 0) {
+        // All fingers lifted - reset gesture state
+        setGestureState(prev => ({
+          ...prev,
+          mode: 'none',
+          touchCount: 0,
+          lastTouchPositions: []
+        }));
+      } else if (touchCount === 1 && gestureState.mode === 'scale') {
+        // Switched from two fingers to one - go back to rotation mode
+        const touch = event.touches[0];
+        setGestureState(prev => ({
+          ...prev,
+          mode: 'rotate',
+          touchCount: 1,
+          initialPosition: { x: touch.clientX, y: touch.clientY },
+          lastTouchPositions: [{ x: touch.clientX, y: touch.clientY }]
+        }));
       }
     };
 
-    window.addEventListener('pointerdown', handlePointerDown);
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('touchstart', handleTouchStart, { passive: false });
-    window.addEventListener('touchmove', handleTouchMove, { passive: false });
-    window.addEventListener('touchend', handleTouchEnd);
+    // Double tap to reset
+    let tapTimeout: NodeJS.Timeout;
+    let tapCount = 0;
+    
+    const handleDoubleTap = (event: TouchEvent) => {
+      tapCount++;
+      if (tapCount === 1) {
+        tapTimeout = setTimeout(() => {
+          tapCount = 0;
+        }, 300);
+      } else if (tapCount === 2) {
+        clearTimeout(tapTimeout);
+        tapCount = 0;
+        resetModelPosition();
+      }
+    };
+
+    // Improved mouse support for desktop testing
+    const handleMouseDown = (event: MouseEvent) => {
+      if (event.button === 0) { // Left click
+        setIsSelected(true);
+        setGestureState(prev => ({
+          ...prev,
+          mode: 'rotate',
+          initialPosition: { x: event.clientX, y: event.clientY }
+        }));
+      }
+    };
+
+    const handleMouseMove = (event: MouseEvent) => {
+      if (gestureState.mode === 'rotate' && event.buttons === 1) {
+        const deltaX = event.clientX - gestureState.initialPosition.x;
+        const deltaY = event.clientY - gestureState.initialPosition.y;
+        
+        setRotation(prev => ({
+          x: Math.max(-Math.PI, Math.min(Math.PI, prev.x + deltaY * 0.01)),
+          y: prev.y + deltaX * 0.01
+        }));
+        
+        setGestureState(prev => ({
+          ...prev,
+          initialPosition: { x: event.clientX, y: event.clientY }
+        }));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setGestureState(prev => ({ ...prev, mode: 'none' }));
+    };
+
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const scaleDelta = event.deltaY > 0 ? 0.9 : 1.1;
+      setModelScale(prev => Math.max(0.02, Math.min(3, prev * scaleDelta)));
+    };
+
+    // Event listeners
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd, { passive: false });
+    document.addEventListener('touchstart', handleDoubleTap, { passive: false });
+    document.addEventListener('mousedown', handleMouseDown);
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('wheel', handleWheel, { passive: false });
 
     return () => {
-      window.removeEventListener('pointerdown', handlePointerDown);
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchstart', handleDoubleTap);
+      document.removeEventListener('mousedown', handleMouseDown);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('wheel', handleWheel);
+      clearTimeout(tapTimeout);
     };
-  }, [isDragging, lastPointer, gestureState, modelScale]);
+  }, [gestureState, modelScale]);
 
   // Reset model to original position
   const resetModelPosition = () => {
