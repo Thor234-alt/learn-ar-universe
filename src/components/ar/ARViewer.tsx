@@ -2,14 +2,20 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF, PresentationControls } from '@react-three/drei';
 import { Button } from '@/components/ui/button';
-import { RotateCcw, Move3D, ZoomIn, ZoomOut, Info, X, Camera, Eye } from 'lucide-react';
+import { RotateCcw, Move3D, ZoomIn, ZoomOut, Info, X, Camera, Eye, RefreshCcw, Share2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useModelData } from '@/hooks/useModelData';
+import { ModelService } from '@/services/modelService';
+import { QRCodeUtils } from '@/utils/qrCodeUtils';
+import { Skeleton } from '@/components/ui/skeleton';
 import ARCamera from './ARCamera';
 
 interface ARViewerProps {
-  modelUrl: string;
-  modelTitle: string;
+  modelUrl?: string;
+  modelTitle?: string;
   modelDescription?: string;
   subInfo?: string;
+  contentId?: string;
   onClose?: () => void;
 }
 
@@ -20,12 +26,14 @@ function Model({ url, scale = 1 }: { url: string; scale?: number }) {
 }
 
 const ARViewer: React.FC<ARViewerProps> = ({
-  modelUrl,
-  modelTitle,
-  modelDescription,
-  subInfo,
+  modelUrl: propModelUrl,
+  modelTitle: propModelTitle,
+  modelDescription: propModelDescription,
+  subInfo: propSubInfo,
+  contentId,
   onClose
 }) => {
+  const { toast } = useToast();
   const [showInfo, setShowInfo] = useState(false);
   const [modelScale, setModelScale] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,14 +42,27 @@ const ARViewer: React.FC<ARViewerProps> = ({
   const [cameraReady, setCameraReady] = useState(false);
   const controlsRef = useRef<any>();
 
-  useEffect(() => {
-    // Simulate loading time
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 1000);
+  // Use dynamic model loading if contentId is provided
+  const { modelData, loading: modelLoading, error: modelError, retry } = useModelData(contentId);
 
-    return () => clearTimeout(timer);
-  }, []);
+  // Determine which data source to use
+  const modelUrl = modelData ? ModelService.getModelUrl(modelData) : propModelUrl;
+  const modelTitle = modelData?.title || propModelTitle || 'AR Model';
+  const modelDescription = modelData?.description || propModelDescription;
+  const subInfo = modelData?.sub_info || propSubInfo;
+
+  useEffect(() => {
+    if (contentId) {
+      // Using dynamic loading - wait for model data
+      setIsLoading(modelLoading);
+    } else {
+      // Using static props - simulate loading
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [contentId, modelLoading]);
 
   const handleReset = () => {
     setModelScale(1);
@@ -74,6 +95,76 @@ const ARViewer: React.FC<ARViewerProps> = ({
     setCameraReady(false);
     setIsLoading(false);
   };
+
+  const handleShare = async () => {
+    if (!contentId) return;
+    
+    try {
+      const shareUrl = QRCodeUtils.generateShareableUrl(contentId);
+      await navigator.share({
+        title: modelTitle,
+        text: `Check out this AR model: ${modelTitle}`,
+        url: shareUrl,
+      });
+    } catch (error) {
+      // Fallback to clipboard
+      const shareUrl = QRCodeUtils.generateShareableUrl(contentId);
+      await navigator.clipboard.writeText(shareUrl);
+      toast({
+        title: "Link copied!",
+        description: "AR link copied to clipboard",
+      });
+    }
+  };
+
+  const handleRetry = () => {
+    if (modelError) {
+      retry();
+    }
+  };
+
+  // Show error state if model loading failed
+  if (modelError && contentId) {
+    return (
+      <div className="relative h-full w-full bg-black flex items-center justify-center">
+        <div className="text-center max-w-sm px-4">
+          <X className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-white mb-2">Model Not Found</h3>
+          <p className="text-gray-300 mb-6">{modelError}</p>
+          <div className="space-y-3">
+            <Button
+              onClick={handleRetry}
+              className="bg-blue-600 hover:bg-blue-700 w-full"
+            >
+              <RefreshCcw className="w-4 h-4 mr-2" />
+              Try Again
+            </Button>
+            {onClose && (
+              <Button
+                onClick={onClose}
+                variant="outline"
+                className="w-full"
+              >
+                Go Back
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if no model URL available
+  if (!modelUrl) {
+    return (
+      <div className="relative h-full w-full bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4 mx-auto"></div>
+          <p className="text-white text-lg">Loading model...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative h-full w-full bg-black">
@@ -273,6 +364,18 @@ const ARViewer: React.FC<ARViewerProps> = ({
                 <Info className="w-5 h-5" />
               </Button>
             )}
+
+            {contentId && (
+              <Button
+                onClick={handleShare}
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-white/20 rounded-full"
+                title="Share AR Model"
+              >
+                <Share2 className="w-5 h-5" />
+              </Button>
+            )}
           </div>
         </div>
 
@@ -300,3 +403,5 @@ const ARViewer: React.FC<ARViewerProps> = ({
 };
 
 export default ARViewer;
+
+// Note: ARViewer is now getting too long (300+ lines). Consider refactoring into smaller components.
