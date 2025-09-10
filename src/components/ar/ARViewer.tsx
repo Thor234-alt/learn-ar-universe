@@ -8,7 +8,7 @@ import { useModelData } from '@/hooks/useModelData';
 import { ModelService } from '@/services/modelService';
 import { QRCodeUtils } from '@/utils/qrCodeUtils';
 import { Skeleton } from '@/components/ui/skeleton';
-import ARCamera from './ARCamera';
+import ARProvider from './ARProvider';
 
 interface ARViewerProps {
   modelUrl?: string;
@@ -212,9 +212,9 @@ const ARViewer: React.FC<ARViewerProps> = ({
         </div>
       )}
 
-      {/* AR Camera View */}
+      {/* AR View - Uses ARProvider to select best implementation */}
       {isARMode && !cameraError && (
-        <ARCamera
+        <ARProvider
           modelUrl={modelUrl}
           modelScale={0.15}
           onCameraReady={handleCameraReady}

@@ -11,7 +11,7 @@ interface ARCameraProps {
 }
 
 // AR 3D Model Component with Enhanced Touch Controls
-function ARModel({ url, scale = 0.1, position = [0, 0, -1] }: { 
+function ARModel({ url, scale = 0.1, position = [0, 0, -0.5] }: { 
   url: string; 
   scale?: number; 
   position?: [number, number, number];
@@ -23,14 +23,15 @@ function ARModel({ url, scale = 0.1, position = [0, 0, -1] }: {
   const [modelScale, setModelScale] = useState(scale);
   const [isSelected, setIsSelected] = useState(false);
   
-  // Enhanced gesture state tracking
+  // Enhanced gesture state tracking with fixed position
   const [gestureState, setGestureState] = useState({
     mode: 'none' as 'none' | 'rotate' | 'translate' | 'scale',
     initialDistance: 0,
     initialScale: scale,
     initialPosition: { x: 0, y: 0 },
     lastTouchPositions: [] as Array<{ x: number; y: number }>,
-    touchCount: 0
+    touchCount: 0,
+    isAnchored: true // Track if model is anchored in place
   });
 
   // Improved touch handling with better gesture detection
@@ -210,12 +211,16 @@ function ARModel({ url, scale = 0.1, position = [0, 0, -1] }: {
     };
   }, [gestureState, modelScale]);
 
-  // Reset model to original position
+  // Reset model to original position and ensure it's anchored
   const resetModelPosition = () => {
-    setModelPosition([0, 0, -1]);
+    setModelPosition([0, 0, -0.5]); // Match the default position parameter
     setRotation({ x: 0, y: 0 });
     setModelScale(scale);
     setIsSelected(false);
+    setGestureState(prev => ({
+      ...prev,
+      isAnchored: true
+    }));
   };
 
   // Apply rotation and position to model with world tracking
@@ -223,6 +228,7 @@ function ARModel({ url, scale = 0.1, position = [0, 0, -1] }: {
     if (modelRef.current) {
       modelRef.current.rotation.x = rotation.x;
       modelRef.current.rotation.y = rotation.y;
+      // Ensure position is always set to the fixed position for better anchoring
       modelRef.current.position.set(...modelPosition);
       modelRef.current.scale.setScalar(modelScale);
     }
@@ -238,11 +244,23 @@ function ARModel({ url, scale = 0.1, position = [0, 0, -1] }: {
           <meshBasicMaterial color="#00ff00" transparent opacity={0.6} />
         </mesh>
       )}
-      {/* Anchor point indicator */}
-      <mesh position={[0, -0.05, 0]}>
-        <sphereGeometry args={[0.01, 8, 8]} />
-        <meshBasicMaterial color="#ff0000" transparent opacity={0.8} />
+      {/* Enhanced anchor point indicator - positioned relative to model's center */}
+      <mesh position={[0, -0.05, 0]} visible={true}>
+        <sphereGeometry args={[0.015, 16, 16]} />
+        <meshBasicMaterial color={gestureState.isAnchored ? "#ff0000" : "#ffaa00"} transparent opacity={0.9} />
       </mesh>
+      {/* Ground plane for better spatial reference */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]} visible={true}>
+        <planeGeometry args={[0.2, 0.2]} />
+        <meshBasicMaterial color={gestureState.isAnchored ? "#ff0000" : "#ffaa00"} transparent opacity={0.2} side={2} />
+      </mesh>
+      {/* Anchoring indicator */}
+      {gestureState.isAnchored && (
+        <mesh position={[0, -0.15, 0]}>
+          <boxGeometry args={[0.03, 0.03, 0.03]} />
+          <meshBasicMaterial color="#ff0000" transparent opacity={0.7} />
+        </mesh>
+      )}
     </group>
   );
 }
