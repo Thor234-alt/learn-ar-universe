@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import '@google/model-viewer';
 
 // Extend HTMLElementTagNameMap to include model-viewer
 declare global {
@@ -23,6 +24,7 @@ interface ModelViewerJSX {
   'shadow-intensity'?: string;
   'shadow-softness'?: string;
   style?: React.CSSProperties;
+  slot?: string;
 }
 
 interface ARCameraProps {
@@ -43,37 +45,10 @@ const ARCamera: React.FC<ARCameraProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Load the Google Model Viewer script dynamically
-    const script = document.createElement('script');
-    script.type = 'module';
-    script.src = 'https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js';
-    
-    script.onload = () => {
-      console.log('Model Viewer library loaded successfully');
-      setIsLoading(false);
-      onCameraReady?.();
-    };
-    
-    script.onerror = () => {
-      const errorMsg = 'Failed to load Model Viewer library';
-      console.error(errorMsg);
-      setError(errorMsg);
-      onCameraError?.(errorMsg);
-    };
-
-    // Check if script is already loaded
-    const existingScript = document.querySelector('script[src*="model-viewer"]');
-    if (!existingScript) {
-      document.head.appendChild(script);
-    } else {
-      setIsLoading(false);
-      onCameraReady?.();
-    }
-
-    return () => {
-      // Cleanup is handled by the browser
-    };
-  }, [onCameraReady, onCameraError]);
+    // Model viewer is imported at the top, so it's ready
+    setIsLoading(false);
+    onCameraReady?.();
+  }, [onCameraReady]);
 
   useEffect(() => {
     if (!modelViewerRef.current) return;
@@ -153,7 +128,27 @@ const ARCamera: React.FC<ARCameraProps> = ({
           height: '100%',
           backgroundColor: 'transparent'
         }}
-      />
+      >
+        <button 
+          slot="ar-button"
+          style={{
+            backgroundColor: 'hsl(var(--primary))',
+            color: 'hsl(var(--primary-foreground))',
+            border: 'none',
+            borderRadius: '8px',
+            padding: '12px 24px',
+            fontSize: '16px',
+            fontWeight: '600',
+            cursor: 'pointer',
+            position: 'absolute',
+            bottom: '16px',
+            left: '50%',
+            transform: 'translateX(-50%)'
+          }}
+        >
+          👋 Activate AR
+        </button>
+      </model-viewer>
     </div>
   );
 };
