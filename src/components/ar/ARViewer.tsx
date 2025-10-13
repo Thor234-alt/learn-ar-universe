@@ -39,7 +39,7 @@ const ARViewer: React.FC<ARViewerProps> = ({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraReady, setCameraReady] = useState(false);
   const controlsRef = useRef<any>();
-  const arCameraRef = useRef<any>(null); // ✅ New ref to ARCamera
+  const arCameraRef = useRef<any>(null);
 
   const { modelData, loading: modelLoading, error: modelError, retry } = useModelData(contentId);
 
@@ -49,65 +49,45 @@ const ARViewer: React.FC<ARViewerProps> = ({
   const subInfo = modelData?.sub_info || propSubInfo;
 
   useEffect(() => {
-    if (contentId) {
-      setIsLoading(modelLoading);
-    } else {
+    if (contentId) setIsLoading(modelLoading);
+    else {
       const timer = setTimeout(() => setIsLoading(false), 1000);
       return () => clearTimeout(timer);
     }
   }, [contentId, modelLoading]);
 
-  const handleReset = () => {
-    setModelScale(1);
-    controlsRef.current?.reset();
-  };
+  const handleReset = () => { setModelScale(1); controlsRef.current?.reset(); };
   const handleZoomIn = () => setModelScale(prev => Math.min(prev * 1.2, 3));
   const handleZoomOut = () => setModelScale(prev => Math.max(prev / 1.2, 0.3));
 
-  // ✅ Updated handleARToggle to trigger AR via ref
+  // ✅ Updated to trigger AR directly
   const handleARToggle = () => {
     if (!isARMode) {
       setCameraError(null);
       setIsARMode(true);
 
-      // Wait a tick for ARCamera to mount
+      // Wait for ARCamera to mount
       setTimeout(() => {
-        if (arCameraRef.current?.modelViewerRef?.current) {
-          const mv = arCameraRef.current.modelViewerRef.current;
-          if (mv.canActivateAR) {
-            mv.activateAR().catch((err: any) => {
-              console.error('AR activation failed:', err);
-              setCameraError('Failed to activate AR. Please check permissions.');
-              setIsARMode(false);
-            });
-          }
+        const mv = arCameraRef.current?.modelViewerRef?.current;
+        if (mv && mv.canActivateAR) {
+          mv.activateAR().catch((err: any) => {
+            console.error('AR activation failed:', err);
+            setCameraError('Failed to activate AR. Check camera permissions.');
+            setIsARMode(false);
+          });
         }
       }, 100);
-    } else {
-      setIsARMode(false); // Exit AR
-    }
+    } else setIsARMode(false);
   };
 
-  const handleCameraReady = () => {
-    setCameraReady(true);
-    setIsLoading(false);
-  };
-  const handleCameraError = (error: string) => {
-    setCameraError(error);
-    setIsARMode(false);
-    setCameraReady(false);
-    setIsLoading(false);
-  };
+  const handleCameraReady = () => { setCameraReady(true); setIsLoading(false); };
+  const handleCameraError = (error: string) => { setCameraError(error); setIsARMode(false); setCameraReady(false); setIsLoading(false); };
 
   const handleShare = async () => {
     if (!contentId) return;
     try {
       const shareUrl = QRCodeUtils.generateShareableUrl(contentId);
-      await navigator.share({
-        title: modelTitle,
-        text: `Check out this AR model: ${modelTitle}`,
-        url: shareUrl,
-      });
+      await navigator.share({ title: modelTitle, text: `Check out this AR model: ${modelTitle}`, url: shareUrl });
     } catch {
       const shareUrl = QRCodeUtils.generateShareableUrl(contentId);
       await navigator.clipboard.writeText(shareUrl);
@@ -117,27 +97,21 @@ const ARViewer: React.FC<ARViewerProps> = ({
 
   const handleRetry = () => modelError && retry();
 
-  if (modelError && contentId) {
-    return (
-      <div className="relative h-full w-full bg-black flex items-center justify-center">
-        <div className="text-center max-w-sm px-4">
-          <X className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-white mb-2">Model Not Found</h3>
-          <p className="text-gray-300 mb-6">{modelError}</p>
-          <div className="space-y-3">
-            <Button onClick={handleRetry} className="bg-blue-600 hover:bg-blue-700 w-full">
-              <RefreshCcw className="w-4 h-4 mr-2" /> Try Again
-            </Button>
-            {onClose && (
-              <Button onClick={onClose} variant="outline" className="w-full">
-                Go Back
-              </Button>
-            )}
-          </div>
+  if (modelError && contentId) return (
+    <div className="relative h-full w-full bg-black flex items-center justify-center">
+      <div className="text-center max-w-sm px-4">
+        <X className="w-16 h-16 text-red-500 mx-auto mb-4" />
+        <h3 className="text-xl font-bold text-white mb-2">Model Not Found</h3>
+        <p className="text-gray-300 mb-6">{modelError}</p>
+        <div className="space-y-3">
+          <Button onClick={handleRetry} className="bg-blue-600 hover:bg-blue-700 w-full">
+            <RefreshCcw className="w-4 h-4 mr-2" /> Try Again
+          </Button>
+          {onClose && <Button onClick={onClose} variant="outline" className="w-full">Go Back</Button>}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
 
   if (!modelUrl) return (
     <div className="relative h-full w-full bg-black flex items-center justify-center">
@@ -154,12 +128,8 @@ const ARViewer: React.FC<ARViewerProps> = ({
         <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4 mx-auto"></div>
-            <p className="text-white text-lg">
-              {isARMode ? 'Starting AR Camera...' : 'Loading AR Experience...'}
-            </p>
-            <p className="text-gray-300 text-sm mt-2">
-              {isARMode ? 'Please allow camera access' : `Preparing ${modelTitle}`}
-            </p>
+            <p className="text-white text-lg">{isARMode ? 'Starting AR Camera...' : 'Loading AR Experience...'}</p>
+            <p className="text-gray-300 text-sm mt-2">{isARMode ? 'Please allow camera access' : `Preparing ${modelTitle}`}</p>
           </div>
         </div>
       )}
@@ -180,7 +150,7 @@ const ARViewer: React.FC<ARViewerProps> = ({
 
       {isARMode && !cameraError && (
         <ARCamera
-          ref={arCameraRef} // ✅ Pass ref to trigger activateAR()
+          ref={arCameraRef}
           modelUrl={modelUrl}
           modelScale={0.15}
           onCameraReady={handleCameraReady}
@@ -203,7 +173,6 @@ const ARViewer: React.FC<ARViewerProps> = ({
       {/* Control Panel */}
       <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 pointer-events-auto z-40">
         <div className="bg-black/50 backdrop-blur-sm rounded-full p-2 flex items-center space-x-2">
-          {/* AR Mode Toggle Button */}
           <Button
             onClick={handleARToggle}
             variant={isARMode ? "default" : "ghost"}
@@ -211,13 +180,4 @@ const ARViewer: React.FC<ARViewerProps> = ({
             className={`rounded-full ${isARMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "text-white hover:bg-white/20"}`}
             title={isARMode ? "Exit AR Mode" : "Enter AR Mode"}
           >
-            {isARMode ? <Eye className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
-          </Button>
-          {/* Other controls... */}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export default ARViewer;
+            {isARMode ? <Eye className="
