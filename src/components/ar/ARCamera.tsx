@@ -110,45 +110,46 @@ const ARCamera: React.FC<ARCameraProps> = ({
   return (
     <div className="relative w-full h-full">
       <model-viewer
-        ref={modelViewerRef}
-        src={modelUrl}
-        alt="3D model for AR viewing"
-        auto-rotate
-        camera-controls
-        ar
-        ar-scale="fixed"
-        xr-environment
-        loading="eager"
-        environment-image="neutral"
-        exposure="1"
-        shadow-intensity="1"
-        shadow-softness="1"
-        style={{
-          width: '100%',
-          height: '100%',
-          backgroundColor: 'transparent'
-        }}
-      >
-        <button 
-          slot="ar-button"
-          style={{
-            backgroundColor: 'hsl(var(--primary))',
-            color: 'hsl(var(--primary-foreground))',
-            border: 'none',
-            borderRadius: '8px',
-            padding: '12px 24px',
-            fontSize: '16px',
-            fontWeight: '600',
-            cursor: 'pointer',
-            position: 'absolute',
-            bottom: '16px',
-            left: '50%',
-            transform: 'translateX(-50%)'
-          }}
-        >
-          👋 Activate AR
-        </button>
-      </model-viewer>
+  ref={modelViewerRef}
+  src={modelUrl}
+  alt="3D model for AR viewing"
+  auto-rotate
+  camera-controls
+  ar
+  ar-modes="webxr scene-viewer quick-look"
+  ar-scale="fixed"
+  xr-environment
+  loading="eager"
+  environment-image="neutral"
+  exposure="1"
+  shadow-intensity="1"
+  shadow-softness="1"
+  style={{
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'transparent'
+  }}
+>
+  <button
+    slot="ar-button"
+    style={{
+      backgroundColor: 'hsl(var(--primary))',
+      color: 'hsl(var(--primary-foreground))',
+      border: 'none',
+      borderRadius: '8px',
+      padding: '12px 24px',
+      fontSize: '16px',
+      fontWeight: '600',
+      cursor: 'pointer',
+      position: 'absolute',
+      bottom: '16px',
+      left: '50%',
+      transform: 'translateX(-50%)'
+    }}
+  >
+    👋 Activate AR
+  </button>
+</model-viewer>
     </div>
   );
 };
