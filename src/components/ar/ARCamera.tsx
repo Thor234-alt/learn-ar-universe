@@ -135,7 +135,7 @@ const ARCamera: React.FC<ARCameraProps> = ({
   return (
     <div className="relative w-full h-full">
       <model-viewer
-        //ref={modelViewerRef}
+        ref={modelViewerRef}
         src={modelUrl}
         alt="3D model for AR viewing"
         auto-rotate
