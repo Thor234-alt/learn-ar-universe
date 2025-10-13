@@ -180,4 +180,21 @@ const ARViewer: React.FC<ARViewerProps> = ({
             className={`rounded-full ${isARMode ? "bg-blue-600 hover:bg-blue-700 text-white" : "text-white hover:bg-white/20"}`}
             title={isARMode ? "Exit AR Mode" : "Enter AR Mode"}
           >
-            {isARMode ? <Eye className="
+            {isARMode ? <Eye className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
+          </Button>
+          {!isARMode && (
+            <>
+              <Button onClick={handleReset} variant="ghost" size="sm" className="text-white hover:bg-white/20 rounded-full" title="Reset View"><RotateCcw className="w-5 h-5" /></Button>
+              <Button onClick={handleZoomOut} variant="ghost" size="sm" className="text-white hover:bg-white/20 rounded-full" title="Zoom Out"><ZoomOut className="w-5 h-5" /></Button>
+              <Button onClick={handleZoomIn} variant="ghost" size="sm" className="text-white hover:bg-white/20 rounded-full" title="Zoom In"><ZoomIn className="w-5 h-5" /></Button>
+            </>
+          )}
+          {subInfo && <Button onClick={() => setShowInfo(!showInfo)} variant="ghost" size="sm" className="text-white hover:bg-white/20 rounded-full" title="Model Info"><Info className="w-5 h-5" /></Button>}
+          {contentId && <Button onClick={handleShare} variant="ghost" size="sm" className="text-white hover:bg-white/20 rounded-full" title="Share AR Model"><Share2 className="w-5 h-5" /></Button>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ARViewer;
