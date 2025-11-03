@@ -25,14 +25,9 @@ const Index = () => {
       {/* Demo Section */}
       <DemoSection />
 
-      {/* Stats Section */}
-      <StatsSection />
+      
 
-      {/* Testimonials Section */}
-      <TestimonialsSection />
 
-      {/* CTA Section */}
-      <CTASection />
 
       {/* Footer */}
       <footer className="bg-slate-900 text-white py-12">

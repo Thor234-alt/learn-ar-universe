@@ -58,7 +58,6 @@ const Navbar = () => {
               <>
                 <a href="#features" className="text-slate-600 hover:text-blue-600 transition-colors">Features</a>
                 <a href="#demo" className="text-slate-600 hover:text-blue-600 transition-colors">Demo</a>
-                <a href="#analytics" className="text-slate-600 hover:text-blue-600 transition-colors">Analytics</a>
               </>
             )}
             

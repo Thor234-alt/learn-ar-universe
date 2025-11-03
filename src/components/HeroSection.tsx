@@ -43,20 +43,7 @@ const HeroSection = () => {
               </Button>
             </div>
 
-            <div className="flex items-center space-x-8 pt-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-slate-900">500K+</div>
-                <div className="text-sm text-slate-600">Students Learning</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-slate-900">12K+</div>
-                <div className="text-sm text-slate-600">Educators</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-slate-900">98%</div>
-                <div className="text-sm text-slate-600">Satisfaction Rate</div>
-              </div>
-            </div>
+            
           </div>
 
           <div className="relative animate-scale-in">
