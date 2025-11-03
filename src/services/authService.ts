@@ -54,7 +54,35 @@ export const authService = {
   },
 
   signOut: async () => {
-    await supabase.auth.signOut();
-    window.location.href = '/';
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('supabase signOut error:', error);
+      }
+
+      // Clean up any persisted supabase auth tokens in localStorage that
+      // sometimes remain set in deployed environments.
+      try {
+        // Common key used by @supabase/auth-js
+        localStorage.removeItem('supabase.auth.token');
+        // Remove any other keys that include 'supabase' to be safe
+        Object.keys(localStorage).forEach((k) => {
+          if (k.includes('supabase')) localStorage.removeItem(k);
+        });
+      } catch (e) {
+        // localStorage may be unavailable in some contexts (SSR), ignore
+        console.warn('could not clear localStorage during signOut', e);
+      }
+
+      // Redirect back to home after sign out
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Unexpected error during signOut', err);
+      // Still attempt a redirect so the UI reflects logged-out state
+      try {
+        localStorage.removeItem('supabase.auth.token');
+      } catch {}
+      window.location.href = '/';
+    }
   }
 };
