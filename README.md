@@ -167,8 +167,7 @@ Handles all business logic for 3D model content:
 - Configure Supabase and any other required environment variables as needed (see `.env.example` if available).
 
 ### Deployment
-- You can deploy via [Lovable](https://lovable.dev/) or your preferred platform (Vercel, Netlify, etc.).
-- For custom domains, see the Lovable documentation.
+- You can deploy via  your preferred platform (Vercel, Netlify, etc.).
 - To build for production:
    ```sh
    npm run build
